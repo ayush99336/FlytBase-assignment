@@ -1,509 +1,114 @@
-import {
-  Drone, InsertDrone, 
-  Mission, InsertMission,
-  Telemetry, InsertTelemetry,
-  MissionLog, InsertMissionLog,
-  BatteryLog, InsertBatteryLog,
-  UpdateMissionStatus, UpdateMissionProgress,
-  drones, missions, telemetry, missionLogs, batteryLogs
-} from "@shared/schema";
-import { db } from "./db";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { PrismaClient, Drone, Mission, Telemetry, MissionLog, BatteryLog, Prisma } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+export interface UpdateMissionStatus {
+  status: "Planned" | "In Progress" | "Completed" | "Aborted" | "Paused";
+}
+
+export interface UpdateMissionProgress {
+  progress: number;
+  actualPath?: any;
+}
 
 export interface IStorage {
-  // Drone operations
   getDrones(): Promise<Drone[]>;
-  getDroneById(id: number): Promise<Drone | undefined>;
-  createDrone(drone: InsertDrone): Promise<Drone>;
-  updateDrone(id: number, drone: Partial<Drone>): Promise<Drone | undefined>;
-  
-  // Mission operations
+  getDroneById(id: number): Promise<Drone | null>;
+  createDrone(drone: Omit<Drone, "id">): Promise<Drone>;
+  updateDrone(id: number, drone: Partial<Drone>): Promise<Drone | null>;
+
   getMissions(): Promise<Mission[]>;
   getActiveMissions(): Promise<Mission[]>;
-  getMissionById(id: number): Promise<Mission | undefined>;
-  createMission(mission: InsertMission): Promise<Mission>;
-  updateMissionStatus(id: number, update: UpdateMissionStatus): Promise<Mission | undefined>;
-  updateMissionProgress(id: number, update: UpdateMissionProgress): Promise<Mission | undefined>;
-  
-  // Telemetry operations
+  getMissionById(id: number): Promise<Mission | null>;
+  createMission(mission: Omit<Mission, "id">): Promise<Mission>;
+  updateMissionStatus(id: number, update: UpdateMissionStatus): Promise<Mission | null>;
+  updateMissionProgress(id: number, update: UpdateMissionProgress): Promise<Mission | null>;
+
   getTelemetryByMissionId(missionId: number): Promise<Telemetry[]>;
-  createTelemetry(telemetry: InsertTelemetry): Promise<Telemetry>;
-  
-  // Mission logs operations
+  createTelemetry(telemetry: Omit<Telemetry, "id">): Promise<Telemetry>;
+
   getMissionLogsByMissionId(missionId: number): Promise<MissionLog[]>;
-  createMissionLog(log: InsertMissionLog): Promise<MissionLog>;
-  
-  // Battery logs operations
+  createMissionLog(log: Omit<MissionLog, "id">): Promise<MissionLog>;
+
   getBatteryLogsByDroneId(droneId: number): Promise<BatteryLog[]>;
-  createBatteryLog(log: InsertBatteryLog): Promise<BatteryLog>;
+  createBatteryLog(log: Omit<BatteryLog, "id">): Promise<BatteryLog>;
+
+  seedData(): Promise<void>;
+}
+
+function toPrismaJson(val: any): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+  if (val === undefined || val === null) return Prisma.JsonNull;
+  return val;
 }
 
 export class DatabaseStorage implements IStorage {
-  
-  // Drone operations
-  async getDrones(): Promise<Drone[]> {
-    return await db.select().from(drones);
+  async getDrones() {
+    return prisma.drone.findMany();
+  }
+  async getDroneById(id: number) {
+    return prisma.drone.findUnique({ where: { id } });
+  }
+  async createDrone(drone: Omit<Drone, "id">) {
+    return prisma.drone.create({ data: drone });
+  }
+  async updateDrone(id: number, drone: Partial<Drone>) {
+    return prisma.drone.update({ where: { id }, data: drone });
   }
 
-  async getDroneById(id: number): Promise<Drone | undefined> {
-    const [drone] = await db.select().from(drones).where(eq(drones.id, id));
-    return drone;
+  async getMissions() {
+    return prisma.mission.findMany();
+  }
+  async getActiveMissions() {
+    return prisma.mission.findMany({ where: { status: "In Progress" } });
+  }
+  async getMissionById(id: number) {
+    return prisma.mission.findUnique({ where: { id } });
+  }
+  async createMission(mission: Omit<Mission, "id">) {
+    return prisma.mission.create({
+      data: {
+        ...mission,
+        flightPath: toPrismaJson(mission.flightPath),
+        actualPath: toPrismaJson(mission.actualPath),
+      },
+    });
+  }
+  async updateMissionStatus(id: number, update: UpdateMissionStatus) {
+    return prisma.mission.update({ where: { id }, data: { status: update.status } });
+  }
+  async updateMissionProgress(id: number, update: UpdateMissionProgress) {
+    return prisma.mission.update({
+      where: { id },
+      data: {
+        progress: update.progress,
+        actualPath: toPrismaJson(update.actualPath),
+      },
+    });
   }
 
-  async createDrone(drone: InsertDrone): Promise<Drone> {
-    const [newDrone] = await db.insert(drones).values(drone).returning();
-    return newDrone;
+  async getTelemetryByMissionId(missionId: number) {
+    return prisma.telemetry.findMany({ where: { missionId }, orderBy: { timestamp: "desc" } });
+  }
+  async createTelemetry(telemetry: Omit<Telemetry, "id">) {
+    return prisma.telemetry.create({ data: telemetry });
   }
 
-  async updateDrone(id: number, droneUpdate: Partial<Drone>): Promise<Drone | undefined> {
-    const [updatedDrone] = await db
-      .update(drones)
-      .set(droneUpdate)
-      .where(eq(drones.id, id))
-      .returning();
-    return updatedDrone;
+  async getMissionLogsByMissionId(missionId: number) {
+    return prisma.missionLog.findMany({ where: { missionId }, orderBy: { timestamp: "desc" } });
+  }
+  async createMissionLog(log: Omit<MissionLog, "id">) {
+    return prisma.missionLog.create({ data: log });
   }
 
-  // Mission operations
-  async getMissions(): Promise<Mission[]> {
-    return await db.select().from(missions);
+  async getBatteryLogsByDroneId(droneId: number) {
+    return prisma.batteryLog.findMany({ where: { droneId }, orderBy: { usageDate: "desc" } });
+  }
+  async createBatteryLog(log: Omit<BatteryLog, "id">) {
+    return prisma.batteryLog.create({ data: log });
   }
 
-  async getActiveMissions(): Promise<Mission[]> {
-    return await db
-      .select()
-      .from(missions)
-      .where(eq(missions.status, "In Progress"));
-  }
-
-  async getMissionById(id: number): Promise<Mission | undefined> {
-    const [mission] = await db.select().from(missions).where(eq(missions.id, id));
-    return mission;
-  }
-
-  async createMission(mission: InsertMission): Promise<Mission> {
-    const [newMission] = await db.insert(missions).values(mission).returning();
-    return newMission;
-  }
-
-  async updateMissionStatus(id: number, update: UpdateMissionStatus): Promise<Mission | undefined> {
-    const [updatedMission] = await db
-      .update(missions)
-      .set({ status: update.status })
-      .where(eq(missions.id, id))
-      .returning();
-    
-    // If mission is completed, update the drone's last mission and status
-    if (update.status === "Completed" && updatedMission.droneId) {
-      await db
-        .update(drones)
-        .set({ 
-          lastMission: id,
-          status: "Available" 
-        })
-        .where(eq(drones.id, updatedMission.droneId));
-    }
-    
-    return updatedMission;
-  }
-
-  async updateMissionProgress(id: number, update: UpdateMissionProgress): Promise<Mission | undefined> {
-    const updateData: Partial<Mission> = { progress: update.progress };
-    
-    if (update.actualPath) {
-      updateData.actualPath = update.actualPath;
-    }
-    
-    const [updatedMission] = await db
-      .update(missions)
-      .set(updateData)
-      .where(eq(missions.id, id))
-      .returning();
-    
-    return updatedMission;
-  }
-
-  // Telemetry operations
-  async getTelemetryByMissionId(missionId: number): Promise<Telemetry[]> {
-    return await db
-      .select()
-      .from(telemetry)
-      .where(eq(telemetry.missionId, missionId))
-      .orderBy(desc(telemetry.timestamp));
-  }
-
-  async createTelemetry(telemetryData: InsertTelemetry): Promise<Telemetry> {
-    const [newTelemetry] = await db
-      .insert(telemetry)
-      .values(telemetryData)
-      .returning();
-    return newTelemetry;
-  }
-
-  // Mission logs operations
-  async getMissionLogsByMissionId(missionId: number): Promise<MissionLog[]> {
-    return await db
-      .select()
-      .from(missionLogs)
-      .where(eq(missionLogs.missionId, missionId))
-      .orderBy(desc(missionLogs.timestamp));
-  }
-
-  async createMissionLog(log: InsertMissionLog): Promise<MissionLog> {
-    const [newLog] = await db
-      .insert(missionLogs)
-      .values(log)
-      .returning();
-    return newLog;
-  }
-
-  // Battery logs operations
-  async getBatteryLogsByDroneId(droneId: number): Promise<BatteryLog[]> {
-    return await db
-      .select()
-      .from(batteryLogs)
-      .where(eq(batteryLogs.droneId, droneId))
-      .orderBy(desc(batteryLogs.usageDate));
-  }
-
-  async createBatteryLog(log: InsertBatteryLog): Promise<BatteryLog> {
-    const [newLog] = await db
-      .insert(batteryLogs)
-      .values(log)
-      .returning();
-    return newLog;
-  }
-
-  // Seed the database with initial data
   async seedData() {
-    // Check if data already exists
-    const droneCount = await db.select().from(drones);
-    if (droneCount.length > 0) {
-      return; // Database already has data
-    }
-    
-    // Insert initial drones
-    await db.insert(drones).values([
-      {
-        name: "Mavic-1", 
-        model: "DJI Mavic 3", 
-        serialNumber: "DJI1234567", 
-        batteryCapacity: 5000, 
-        currentBatteryLevel: 95, 
-        status: "Available", 
-        location: "Main Hangar", 
-        flightHours: "120.5", 
-        healthStatus: "Good",
-        lastMission: null
-      },
-      {
-        name: "Phantom-2", 
-        model: "DJI Phantom 4 Pro", 
-        serialNumber: "DJI7654321", 
-        batteryCapacity: 4500, 
-        currentBatteryLevel: 85, 
-        status: "Available", 
-        location: "Main Hangar", 
-        flightHours: "220.7", 
-        healthStatus: "Good",
-        lastMission: null
-      },
-      {
-        name: "Agras-3", 
-        model: "DJI Agras T20", 
-        serialNumber: "DJI9876543", 
-        batteryCapacity: 10000, 
-        currentBatteryLevel: 65, 
-        status: "Maintenance", 
-        location: "Service Bay", 
-        flightHours: "450.2", 
-        healthStatus: "Needs Attention",
-        lastMission: null
-      },
-      {
-        name: "Inspire-4", 
-        model: "DJI Inspire 2", 
-        serialNumber: "DJI2468013", 
-        batteryCapacity: 6000, 
-        currentBatteryLevel: 100, 
-        status: "Available", 
-        location: "Main Hangar", 
-        flightHours: "75.3", 
-        healthStatus: "Excellent",
-        lastMission: null
-      },
-      {
-        name: "Matrice-5", 
-        model: "DJI Matrice 300", 
-        serialNumber: "DJI1357924", 
-        batteryCapacity: 8000, 
-        currentBatteryLevel: 90, 
-        status: "Available", 
-        location: "Main Hangar", 
-        flightHours: "180.9", 
-        healthStatus: "Good",
-        lastMission: null
-      }
-    ]);
-    
-    // Get drone IDs for mission creation
-    const droneList = await db.select().from(drones);
-    
-    // Insert sample missions
-    await db.insert(missions).values([
-      {
-        name: "North Campus Survey",
-        missionType: "Survey",
-        description: "Aerial survey of north campus construction site",
-        droneId: droneList[0].id,
-        scheduledStartTime: new Date(Date.now() + 3600000),
-        estimatedDuration: 45,
-        status: "Planned",
-        area: 25000,
-        plannedPath: JSON.stringify({
-          type: "LineString",
-          coordinates: [
-            [-122.084, 37.422],
-            [-122.082, 37.421],
-            [-122.080, 37.420],
-            [-122.081, 37.418]
-          ]
-        }),
-        actualPath: null,
-        progress: 0
-      },
-      {
-        name: "Building Inspection",
-        missionType: "Inspection",
-        description: "Detailed inspection of research building exterior",
-        droneId: droneList[1].id,
-        scheduledStartTime: new Date(Date.now() + 7200000),
-        estimatedDuration: 30,
-        status: "Planned",
-        area: 5000,
-        plannedPath: JSON.stringify({
-          type: "LineString",
-          coordinates: [
-            [-122.090, 37.425],
-            [-122.089, 37.424],
-            [-122.088, 37.424],
-            [-122.087, 37.425]
-          ]
-        }),
-        actualPath: null,
-        progress: 0
-      },
-      {
-        name: "Agricultural Monitoring",
-        missionType: "Agricultural",
-        description: "Crop health assessment for experimental farm",
-        droneId: droneList[4].id,
-        scheduledStartTime: new Date(Date.now() - 3600000),
-        estimatedDuration: 60,
-        status: "In Progress",
-        area: 40000,
-        plannedPath: JSON.stringify({
-          type: "LineString",
-          coordinates: [
-            [-122.095, 37.420],
-            [-122.090, 37.418],
-            [-122.092, 37.415],
-            [-122.097, 37.417]
-          ]
-        }),
-        actualPath: JSON.stringify({
-          type: "LineString",
-          coordinates: [
-            [-122.095, 37.420],
-            [-122.092, 37.418],
-            [-122.091, 37.416]
-          ]
-        }),
-        progress: 45
-      },
-      {
-        name: "Security Patrol",
-        missionType: "Security",
-        description: "Routine security patrol of campus perimeter",
-        droneId: droneList[3].id,
-        scheduledStartTime: new Date(Date.now() - 7200000),
-        estimatedDuration: 40,
-        status: "Completed",
-        area: 30000,
-        plannedPath: JSON.stringify({
-          type: "LineString",
-          coordinates: [
-            [-122.100, 37.430],
-            [-122.095, 37.430],
-            [-122.095, 37.425],
-            [-122.100, 37.425]
-          ]
-        }),
-        actualPath: JSON.stringify({
-          type: "LineString",
-          coordinates: [
-            [-122.100, 37.430],
-            [-122.095, 37.430],
-            [-122.095, 37.425],
-            [-122.100, 37.425]
-          ]
-        }),
-        progress: 100
-      },
-      {
-        name: "Event Recording",
-        missionType: "Recording",
-        description: "Aerial recording of campus event",
-        droneId: droneList[0].id,
-        scheduledStartTime: new Date(Date.now() + 10800000),
-        estimatedDuration: 90,
-        status: "Planned",
-        area: 15000,
-        plannedPath: JSON.stringify({
-          type: "LineString",
-          coordinates: [
-            [-122.085, 37.428],
-            [-122.082, 37.428],
-            [-122.082, 37.425],
-            [-122.085, 37.425]
-          ]
-        }),
-        actualPath: null,
-        progress: 0
-      }
-    ]);
-    
-    // Get mission IDs for telemetry and logs
-    const missionsList = await db.select().from(missions);
-    
-    // Add telemetry data for in-progress mission
-    const inProgressMission = missionsList.find(m => m.status === "In Progress");
-    if (inProgressMission) {
-      await db.insert(telemetry).values([
-        {
-          missionId: inProgressMission.id,
-          timestamp: new Date(Date.now() - 1800000),
-          latitude: 37.420,
-          longitude: -122.095,
-          altitude: 50,
-          speed: 8.5,
-          batteryLevel: 90,
-          distanceTraveled: 0,
-          signalStrength: 95
-        },
-        {
-          missionId: inProgressMission.id,
-          timestamp: new Date(Date.now() - 1200000),
-          latitude: 37.418,
-          longitude: -122.092,
-          altitude: 60,
-          speed: 7.8,
-          batteryLevel: 85,
-          distanceTraveled: 500,
-          signalStrength: 92
-        },
-        {
-          missionId: inProgressMission.id,
-          timestamp: new Date(Date.now() - 600000),
-          latitude: 37.416,
-          longitude: -122.091,
-          altitude: 55,
-          speed: 6.5,
-          batteryLevel: 80,
-          distanceTraveled: 900,
-          signalStrength: 90
-        }
-      ]);
-      
-      // Add mission logs
-      await db.insert(missionLogs).values([
-        {
-          missionId: inProgressMission.id,
-          timestamp: new Date(Date.now() - 1800000),
-          message: "Mission started",
-          logType: "Info"
-        },
-        {
-          missionId: inProgressMission.id,
-          timestamp: new Date(Date.now() - 1700000),
-          message: "Takeoff successful",
-          logType: "Info"
-        },
-        {
-          missionId: inProgressMission.id,
-          timestamp: new Date(Date.now() - 1200000),
-          message: "Waypoint 1 reached",
-          logType: "Info"
-        },
-        {
-          missionId: inProgressMission.id,
-          timestamp: new Date(Date.now() - 600000),
-          message: "Waypoint 2 reached",
-          logType: "Info"
-        },
-        {
-          missionId: inProgressMission.id,
-          timestamp: new Date(Date.now() - 300000),
-          message: "Wind speed increased, adjusting flight parameters",
-          logType: "Warning"
-        }
-      ]);
-    }
-    
-    // Add data for completed mission
-    const completedMission = missionsList.find(m => m.status === "Completed");
-    if (completedMission) {
-      // Add mission logs
-      await db.insert(missionLogs).values([
-        {
-          missionId: completedMission.id,
-          timestamp: new Date(Date.now() - 7200000),
-          message: "Mission started",
-          logType: "Info"
-        },
-        {
-          missionId: completedMission.id,
-          timestamp: new Date(Date.now() - 7000000),
-          message: "Takeoff successful",
-          logType: "Info"
-        },
-        {
-          missionId: completedMission.id,
-          timestamp: new Date(Date.now() - 6800000),
-          message: "Beginning perimeter patrol",
-          logType: "Info"
-        },
-        {
-          missionId: completedMission.id,
-          timestamp: new Date(Date.now() - 5400000),
-          message: "Patrol completed",
-          logType: "Info"
-        },
-        {
-          missionId: completedMission.id,
-          timestamp: new Date(Date.now() - 5300000),
-          message: "Mission completed successfully",
-          logType: "Info"
-        }
-      ]);
-      
-      // Add battery log
-      await db.insert(batteryLogs).values([
-        {
-          droneId: completedMission.droneId,
-          missionId: completedMission.id,
-          startLevel: 100,
-          endLevel: 70,
-          cycleCount: 12,
-          usageDate: new Date(Date.now() - 5300000)
-        }
-      ]);
-    }
-  }
-
-  constructor() {
-    // We'll let the application handle database seeding after tables are created
-    // The database push needs to happen first
+    // Implement seeding logic using prisma.*.createMany()
   }
 }
 

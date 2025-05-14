@@ -11,6 +11,12 @@ import {
   insertMissionLogSchema
 } from "@shared/schema";
 import { log } from "./vite";
+import { Prisma } from "@prisma/client";
+import dronesRouter from "./api/drones";
+import missionsRouter from "./api/missions";
+import telemetryRouter from "./api/telemetry";
+import logsRouter from "./api/logs";
+import simulateRouter from "./api/simulate";
 
 interface WsClient extends WebSocket {
   isAlive: boolean;
@@ -70,7 +76,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (data.telemetry) {
               try {
                 const telemetryData = insertTelemetrySchema.parse(data.telemetry);
-                const telemetry = await storage.createTelemetry(telemetryData);
+                // Fix: always provide null for missing nullable fields in telemetryData
+                const fixedTelemetryData = {
+                  ...telemetryData,
+                  altitude: telemetryData.altitude ?? null,
+                  speed: telemetryData.speed ?? null,
+                  batteryLevel: telemetryData.batteryLevel ?? null,
+                  distanceTraveled: telemetryData.distanceTraveled ?? null,
+                  signalStrength: telemetryData.signalStrength ?? null,
+                  timestamp: telemetryData.timestamp ?? new Date(),
+                };
+                const telemetry = await storage.createTelemetry(fixedTelemetryData);
                 
                 // Update mission progress based on telemetry
                 if (telemetry.missionId) {
@@ -125,12 +141,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Ping-pong to check connection status
   const interval = setInterval(() => {
-    wss.clients.forEach((ws: WsClient) => {
-      if (!ws.isAlive) return ws.terminate();
-      
+    for (const ws of Array.from(wss.clients) as WsClient[]) {
+      if (!ws.isAlive) {
+        ws.terminate();
+        continue;
+      }
       ws.isAlive = false;
       ws.ping();
-    });
+    }
   }, 30000);
   
   wss.on('close', () => {
@@ -142,7 +160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const mission = await storage.getMissionById(missionId);
     if (!mission) return;
     
-    wss.clients.forEach((client: WsClient) => {
+    for (const client of Array.from(wss.clients) as WsClient[]) {
       if (client.readyState === WebSocket.OPEN && 
           client.watchingMissions && 
           client.watchingMissions.includes(missionId)) {
@@ -151,8 +169,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           mission
         }));
       }
-    });
+    }
   };
+
+  // Helper function to check GeoJSON type
+  function isLineString(obj: any): obj is { type: string; coordinates: number[][] } {
+    return obj && typeof obj === 'object' && obj.type === 'LineString' && Array.isArray(obj.coordinates);
+  }
 
   // Helper function to simulate mission progress
   const simulateMissionProgress = async (missionId: number) => {
@@ -160,77 +183,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!mission || mission.status !== "In Progress") return;
     
     // Simulate drone movement along the flight path
-    if (mission.flightPath && typeof mission.flightPath === 'object') {
-      const flightPath = mission.flightPath as { type: string, coordinates: number[][] };
+    if (mission.flightPath && isLineString(mission.flightPath)) {
+      const flightPath = mission.flightPath;
       
-      if (flightPath.type === 'LineString' && Array.isArray(flightPath.coordinates)) {
-        // Calculate how far we've progressed through the path
-        const totalPoints = flightPath.coordinates.length;
-        const pointsToComplete = Math.floor(totalPoints * (mission.progress / 100));
-        const nextPoint = Math.min(pointsToComplete + 1, totalPoints - 1);
+      // Calculate how far we've progressed through the path
+      const totalPoints = flightPath.coordinates.length;
+      const pointsToComplete = Math.floor(totalPoints * (mission.progress / 100));
+      const nextPoint = Math.min(pointsToComplete + 1, totalPoints - 1);
+      
+      if (nextPoint < totalPoints) {
+        // Get the next coordinate
+        const [longitude, latitude] = flightPath.coordinates[nextPoint];
         
-        if (nextPoint < totalPoints) {
-          // Get the next coordinate
-          const [longitude, latitude] = flightPath.coordinates[nextPoint];
-          
-          // Create telemetry data
-          const telemetry = {
+        // Create telemetry data
+        const telemetry = {
+          missionId: mission.id,
+          altitude: mission.altitude ?? null,
+          speed: mission.speed ?? null,
+          batteryLevel: Math.max(25, 100 - mission.progress),
+          latitude,
+          longitude,
+          distanceTraveled: 0, // Would calculate based on actual path length
+          signalStrength: Math.floor(80 + Math.random() * 20),
+          timestamp: new Date(),
+        };
+        
+        await storage.createTelemetry(telemetry);
+        
+        // Create mission log periodically
+        if (mission.progress % 25 === 0) {
+          const sectionCompleted = Math.floor(mission.progress / 25);
+          await storage.createMissionLog({
             missionId: mission.id,
-            altitude: mission.altitude || 80,
-            speed: mission.speed || 5,
-            batteryLevel: Math.max(25, 100 - mission.progress),
-            latitude,
-            longitude,
-            distanceTraveled: 0, // Would calculate based on actual path length
-            signalStrength: Math.floor(80 + Math.random() * 20)
-          };
-          
-          await storage.createTelemetry(telemetry);
-          
-          // Create mission log periodically
-          if (mission.progress % 25 === 0) {
-            const sectionCompleted = Math.floor(mission.progress / 25);
-            await storage.createMissionLog({
-              missionId: mission.id,
-              logType: "INFO",
-              message: `Completed survey section ${sectionCompleted}/4`
-            });
-          }
-          
-          // Update actual path
-          let actualPath = mission.actualPath;
-          if (!actualPath) {
-            actualPath = {
-              type: "LineString",
-              coordinates: flightPath.coordinates.slice(0, nextPoint + 1)
-            };
-          } else if (typeof actualPath === 'object' && actualPath.type === 'LineString') {
-            actualPath.coordinates = flightPath.coordinates.slice(0, nextPoint + 1);
-          }
-          
-          // Update mission progress
-          await storage.updateMissionProgress(mission.id, {
-            progress: mission.progress + 0.5,
-            actualPath
+            logType: "INFO",
+            message: `Completed survey section ${sectionCompleted}/4`,
+            timestamp: new Date(),
           });
-          
-          // Broadcast update
+        }
+        
+        // Update actual path
+        let actualPath = mission.actualPath;
+        if (!actualPath) {
+          actualPath = {
+            type: "LineString",
+            coordinates: flightPath.coordinates.slice(0, nextPoint + 1)
+          };
+        } else if (isLineString(actualPath)) {
+          actualPath = {
+            ...actualPath,
+            coordinates: flightPath.coordinates.slice(0, nextPoint + 1)
+          };
+        }
+        
+        // Update mission progress
+        await storage.updateMissionProgress(mission.id, {
+          progress: mission.progress + 0.5,
+          actualPath
+        });
+        
+        // Broadcast update
+        broadcastMissionUpdate(mission.id);
+        
+        // If mission is close to completion
+        if (mission.progress >= 99.5) {
+          await storage.updateMissionStatus(mission.id, { status: "Completed" });
           broadcastMissionUpdate(mission.id);
           
-          // If mission is close to completion
-          if (mission.progress >= 99.5) {
-            await storage.updateMissionStatus(mission.id, { status: "Completed" });
-            broadcastMissionUpdate(mission.id);
-            
-            // Update drone battery level
-            if (mission.droneId) {
-              const drone = await storage.getDroneById(mission.droneId);
-              if (drone) {
-                await storage.updateDrone(drone.id, { 
-                  currentBatteryLevel: Math.floor(Math.max(10, drone.currentBatteryLevel - 20)),
-                  status: "Available" 
-                });
-              }
+          // Update drone battery level
+          if (mission.droneId) {
+            const drone = await storage.getDroneById(mission.droneId);
+            if (drone) {
+              await storage.updateDrone(drone.id, { 
+                currentBatteryLevel: Math.floor(Math.max(10, drone.currentBatteryLevel - 20)),
+                status: "Available" 
+              });
             }
           }
         }
@@ -260,14 +286,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           // Broadcast drone update to all clients
-          wss.clients.forEach((client: WsClient) => {
+          for (const client of Array.from(wss.clients) as WsClient[]) {
             if (client.readyState === WebSocket.OPEN) {
               client.send(JSON.stringify({
                 type: 'drone:update',
-                drone: {...drone, currentBatteryLevel: newBatteryLevel}
+                drone: { ...drone, currentBatteryLevel: newBatteryLevel }
               }));
             }
-          });
+          }
         }
       }
     }
@@ -298,144 +324,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createMissionLog({
           missionId: missionToStart.id,
           logType: "INFO",
-          message: `Mission started with drone ${selectedDrone.name}`
+          message: `Mission started with drone ${selectedDrone.name}`,
+          timestamp: new Date(),
         });
         
         // Broadcast updates
         broadcastMissionUpdate(missionToStart.id);
         
         // Broadcast to all clients
-        wss.clients.forEach((client: WsClient) => {
+        for (const client of Array.from(wss.clients) as WsClient[]) {
           if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify({
               type: 'mission:started',
               missionId: missionToStart.id
             }));
           }
-        });
+        }
       }
     }
   }, 20000);
   
-  /*
-   * API Routes
-   */
-  
-  // Drones API
-  app.get('/api/drones', async (req, res) => {
-    const drones = await storage.getDrones();
-    res.json(drones);
-  });
-  
-  app.get('/api/drones/:id', async (req, res) => {
-    const drone = await storage.getDroneById(parseInt(req.params.id));
-    if (!drone) {
-      return res.status(404).json({ message: 'Drone not found' });
-    }
-    res.json(drone);
-  });
-  
-  app.post('/api/drones', async (req, res) => {
-    try {
-      const droneData = insertDroneSchema.parse(req.body);
-      const drone = await storage.createDrone(droneData);
-      res.status(201).json(drone);
-    } catch (error) {
-      res.status(400).json({ message: 'Invalid drone data' });
-    }
-  });
-  
-  // Missions API
-  app.get('/api/missions', async (req, res) => {
-    const missions = await storage.getMissions();
-    res.json(missions);
-  });
-  
-  app.get('/api/missions/active', async (req, res) => {
-    const missions = await storage.getActiveMissions();
-    res.json(missions);
-  });
-  
-  app.get('/api/missions/:id', async (req, res) => {
-    const mission = await storage.getMissionById(parseInt(req.params.id));
-    if (!mission) {
-      return res.status(404).json({ message: 'Mission not found' });
-    }
-    res.json(mission);
-  });
-  
-  app.post('/api/missions', async (req, res) => {
-    try {
-      const missionData = insertMissionSchema.parse(req.body);
-      const mission = await storage.createMission(missionData);
-      res.status(201).json(mission);
-    } catch (error) {
-      res.status(400).json({ message: 'Invalid mission data' });
-    }
-  });
-  
-  app.patch('/api/missions/:id/status', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const updateData = updateMissionStatusSchema.parse(req.body);
-      
-      const mission = await storage.updateMissionStatus(id, updateData);
-      if (!mission) {
-        return res.status(404).json({ message: 'Mission not found' });
-      }
-      
-      // Broadcast mission update
-      broadcastMissionUpdate(id);
-      
-      res.json(mission);
-    } catch (error) {
-      res.status(400).json({ message: 'Invalid status update' });
-    }
-  });
-  
-  app.patch('/api/missions/:id/progress', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const updateData = updateMissionProgressSchema.parse(req.body);
-      
-      const mission = await storage.updateMissionProgress(id, updateData);
-      if (!mission) {
-        return res.status(404).json({ message: 'Mission not found' });
-      }
-      
-      // Broadcast mission update
-      broadcastMissionUpdate(id);
-      
-      res.json(mission);
-    } catch (error) {
-      res.status(400).json({ message: 'Invalid progress update' });
-    }
-  });
-  
-  // Mission logs API
-  app.get('/api/missions/:id/logs', async (req, res) => {
-    const missionId = parseInt(req.params.id);
-    const logs = await storage.getMissionLogsByMissionId(missionId);
-    res.json(logs);
-  });
-  
-  app.post('/api/missions/:id/logs', async (req, res) => {
-    try {
-      const missionId = parseInt(req.params.id);
-      const logData = { ...req.body, missionId };
-      const log = await storage.createMissionLog(logData);
-      res.status(201).json(log);
-    } catch (error) {
-      res.status(400).json({ message: 'Invalid log data' });
-    }
-  });
-  
-  // Telemetry API
-  app.get('/api/missions/:id/telemetry', async (req, res) => {
-    const missionId = parseInt(req.params.id);
-    const telemetry = await storage.getTelemetryByMissionId(missionId);
-    res.json(telemetry);
-  });
+  // Mount modular API routers
+  app.use("/api/drones", dronesRouter);
+  app.use("/api/missions", missionsRouter);
+  app.use("/api", telemetryRouter); // /api/missions/:id/telemetry
+  app.use("/api", logsRouter);      // /api/missions/:id/logs
+  app.use("/api/simulate", simulateRouter);
 
   return httpServer;
 }

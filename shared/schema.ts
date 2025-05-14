@@ -1,180 +1,75 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, decimal, real } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { relations } from "drizzle-orm";
 
-// Drone model
-export const drones = pgTable("drones", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  model: text("model").notNull(),
-  serialNumber: text("serial_number").notNull().unique(),
-  batteryCapacity: integer("battery_capacity").notNull(), // Percentage
-  currentBatteryLevel: integer("current_battery_level").notNull(), // Percentage
-  status: text("status").notNull(), // Available, In Mission, Charging, Maintenance
-  location: text("location").notNull(),
-  flightHours: decimal("flight_hours", { precision: 10, scale: 2 }).notNull().default("0"),
-  healthStatus: text("health_status").notNull().default("good"), // Good, Fair, Poor
-  lastMission: integer("last_mission").references(() => missions.id),
+// Prisma-compatible schemas for validation only
+export const insertDroneSchema = z.object({
+  name: z.string(),
+  model: z.string(),
+  serialNumber: z.string(),
+  batteryCapacity: z.number(),
+  currentBatteryLevel: z.number(),
+  status: z.string(),
+  location: z.string(),
+  flightHours: z.union([z.string(), z.number()]),
+  healthStatus: z.string().optional(),
+  lastMissionId: z.number().optional().nullable(),
 });
 
-// Mission model
-export const missions = pgTable("missions", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  missionType: text("mission_type").notNull(), // Site Survey, Building Inspection, etc.
-  status: text("status").notNull(), // Planned, In Progress, Completed, Aborted
-  location: text("location").notNull(),
-  area: real("area").notNull(), // Area in square meters
-  droneId: integer("drone_id").references(() => drones.id),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  scheduledAt: timestamp("scheduled_at"),
-  startedAt: timestamp("started_at"),
-  completedAt: timestamp("completed_at"),
-  duration: integer("duration"), // Duration in seconds
-  flightPath: json("flight_path").notNull(), // GeoJSON of the planned path
-  actualPath: json("actual_path"), // GeoJSON of the actual path
-  progress: integer("progress").notNull().default(0), // Percentage complete
-  altitude: integer("altitude"), // in meters
-  speed: integer("speed"), // in m/s
-  imageOverlap: integer("image_overlap"), // in percentage
-  patternType: text("pattern_type"), // Grid, Perimeter, Crosshatch, Spiral
+export const insertMissionSchema = z.object({
+  name: z.string(),
+  missionType: z.string(),
+  status: z.string(),
+  location: z.string(),
+  area: z.number(),
+  droneId: z.number().optional().nullable(),
+  createdAt: z.date().optional(),
+  scheduledAt: z.date().optional().nullable(),
+  startedAt: z.date().optional().nullable(),
+  completedAt: z.date().optional().nullable(),
+  duration: z.number().optional().nullable(),
+  flightPath: z.any(),
+  actualPath: z.any().optional().nullable(),
+  progress: z.number().optional(),
+  altitude: z.number().optional().nullable(),
+  speed: z.number().optional().nullable(),
+  imageOverlap: z.number().optional().nullable(),
+  patternType: z.string().optional().nullable(),
 });
 
-// Flight telemetry - for storing real-time data
-export const telemetry = pgTable("telemetry", {
-  id: serial("id").primaryKey(),
-  missionId: integer("mission_id").references(() => missions.id).notNull(),
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
-  altitude: real("altitude"), // Current altitude in meters
-  speed: real("speed"), // Current speed in m/s
-  batteryLevel: integer("battery_level"), // Current battery level percentage
-  latitude: real("latitude").notNull(), // Current latitude
-  longitude: real("longitude").notNull(), // Current longitude
-  distanceTraveled: real("distance_traveled"), // Distance traveled in meters
-  signalStrength: integer("signal_strength"), // Signal strength percentage
+export const insertTelemetrySchema = z.object({
+  missionId: z.number(),
+  timestamp: z.date().optional(),
+  altitude: z.number().optional().nullable(),
+  speed: z.number().optional().nullable(),
+  batteryLevel: z.number().optional().nullable(),
+  latitude: z.number(),
+  longitude: z.number(),
+  distanceTraveled: z.number().optional().nullable(),
+  signalStrength: z.number().optional().nullable(),
 });
 
-// Mission logs for tracking events during missions
-export const missionLogs = pgTable("mission_logs", {
-  id: serial("id").primaryKey(),
-  missionId: integer("mission_id").references(() => missions.id).notNull(),
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
-  logType: text("log_type").notNull(), // INFO, WARN, ERROR, START, END
-  message: text("message").notNull(),
+export const insertMissionLogSchema = z.object({
+  missionId: z.number(),
+  timestamp: z.date().optional(),
+  logType: z.string(),
+  message: z.string(),
 });
 
-// Battery usage logs
-export const batteryLogs = pgTable("battery_logs", {
-  id: serial("id").primaryKey(),
-  droneId: integer("drone_id").references(() => drones.id).notNull(),
-  missionId: integer("mission_id").references(() => missions.id),
-  startLevel: integer("start_level").notNull(),
-  endLevel: integer("end_level").notNull(),
-  cycleCount: integer("cycle_count").notNull(),
-  usageDate: timestamp("usage_date").notNull().defaultNow(),
+export const insertBatteryLogSchema = z.object({
+  droneId: z.number(),
+  missionId: z.number().optional().nullable(),
+  startLevel: z.number(),
+  endLevel: z.number(),
+  cycleCount: z.number(),
+  usageDate: z.date().optional(),
 });
 
-// Insert schemas
-export const insertDroneSchema = createInsertSchema(drones).omit({
-  id: true,
-  lastMission: true
-});
-
-export const insertMissionSchema = createInsertSchema(missions).omit({
-  id: true,
-  createdAt: true,
-  startedAt: true,
-  completedAt: true,
-  duration: true,
-  actualPath: true,
-  progress: true
-});
-
-export const insertTelemetrySchema = createInsertSchema(telemetry).omit({
-  id: true,
-  timestamp: true
-});
-
-export const insertMissionLogSchema = createInsertSchema(missionLogs).omit({
-  id: true,
-  timestamp: true
-});
-
-export const insertBatteryLogSchema = createInsertSchema(batteryLogs).omit({
-  id: true,
-  usageDate: true
-});
-
-// Relations
-export const dronesRelations = relations(drones, ({ one, many }) => ({
-  lastMissionRel: one(missions, {
-    fields: [drones.lastMission],
-    references: [missions.id]
-  }),
-  missions: many(missions),
-  batteryLogs: many(batteryLogs)
-}));
-
-export const missionsRelations = relations(missions, ({ one, many }) => ({
-  drone: one(drones, {
-    fields: [missions.droneId],
-    references: [drones.id]
-  }),
-  telemetryData: many(telemetry),
-  logs: many(missionLogs),
-  batteryLogs: many(batteryLogs)
-}));
-
-export const telemetryRelations = relations(telemetry, ({ one }) => ({
-  mission: one(missions, {
-    fields: [telemetry.missionId],
-    references: [missions.id]
-  })
-}));
-
-export const missionLogsRelations = relations(missionLogs, ({ one }) => ({
-  mission: one(missions, {
-    fields: [missionLogs.missionId],
-    references: [missions.id]
-  })
-}));
-
-export const batteryLogsRelations = relations(batteryLogs, ({ one }) => ({
-  drone: one(drones, {
-    fields: [batteryLogs.droneId],
-    references: [drones.id]
-  }),
-  mission: one(missions, {
-    fields: [batteryLogs.missionId],
-    references: [missions.id]
-  })
-}));
-
-// Types
-export type Drone = typeof drones.$inferSelect;
-export type InsertDrone = z.infer<typeof insertDroneSchema>;
-
-export type Mission = typeof missions.$inferSelect;
-export type InsertMission = z.infer<typeof insertMissionSchema>;
-
-export type Telemetry = typeof telemetry.$inferSelect;
-export type InsertTelemetry = z.infer<typeof insertTelemetrySchema>;
-
-export type MissionLog = typeof missionLogs.$inferSelect;
-export type InsertMissionLog = z.infer<typeof insertMissionLogSchema>;
-
-export type BatteryLog = typeof batteryLogs.$inferSelect;
-export type InsertBatteryLog = z.infer<typeof insertBatteryLogSchema>;
-
-// Additional schemas for API requests
 export const updateMissionStatusSchema = z.object({
   status: z.enum(["Planned", "In Progress", "Completed", "Aborted", "Paused"]),
 });
 
 export const updateMissionProgressSchema = z.object({
   progress: z.number().min(0).max(100),
-  actualPath: z.any().optional(), // GeoJSON
+  actualPath: z.any().optional(),
 });
 
 export type UpdateMissionStatus = z.infer<typeof updateMissionStatusSchema>;

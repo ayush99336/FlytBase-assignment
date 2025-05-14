@@ -15,11 +15,13 @@ import MissionMonitoring from "@/pages/MissionMonitoring";
 import FleetManagement from "@/pages/FleetManagement";
 import ReportsAnalytics from "@/pages/ReportsAnalytics";
 import NotFound from "@/pages/not-found";
+import Missions from "@/pages/Missions";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/missions" component={Missions} />
       <Route path="/missions/plan" component={MissionPlanning} />
       <Route path="/missions/monitor" component={MissionMonitoring} />
       <Route path="/fleet" component={FleetManagement} />

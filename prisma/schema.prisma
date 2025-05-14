@@ -1,0 +1,87 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Drone {
+    id                  Int          @id @default(autoincrement())
+    name                String
+    model               String
+    serialNumber        String       @unique
+    batteryCapacity     Int
+    currentBatteryLevel Int
+    status              String
+    location            String
+    flightHours         Decimal      @default(0)
+    healthStatus        String       @default("good")
+    lastMissionId       Int?         @unique
+    lastMission         Mission?     @relation("LastMission", fields: [lastMissionId], references: [id])
+    missions            Mission[]    @relation("DroneMissions")
+    batteryLogs         BatteryLog[]
+}
+
+model Mission {
+    id            Int          @id @default(autoincrement())
+    name          String
+    missionType   String
+    status        String
+    location      String
+    area          Float
+    droneId       Int?
+    drone         Drone?       @relation("DroneMissions", fields: [droneId], references: [id])
+    createdAt     DateTime     @default(now())
+    scheduledAt   DateTime?
+    startedAt     DateTime?
+    completedAt   DateTime?
+    duration      Int?
+    flightPath    Json
+    actualPath    Json?
+    progress      Int          @default(0)
+    altitude      Int?
+    speed         Int?
+    imageOverlap  Int?
+    patternType   String?
+    telemetry     Telemetry[]
+    logs          MissionLog[]
+    batteryLogs   BatteryLog[]
+    lastMissionOf Drone?       @relation("LastMission")
+}
+
+model Telemetry {
+    id               Int      @id @default(autoincrement())
+    missionId        Int
+    mission          Mission  @relation(fields: [missionId], references: [id])
+    timestamp        DateTime @default(now())
+    altitude         Float?
+    speed            Float?
+    batteryLevel     Int?
+    latitude         Float
+    longitude        Float
+    distanceTraveled Float?
+    signalStrength   Int?
+}
+
+model MissionLog {
+    id        Int      @id @default(autoincrement())
+    missionId Int
+    mission   Mission  @relation(fields: [missionId], references: [id])
+    timestamp DateTime @default(now())
+    logType   String
+    message   String
+}
+
+model BatteryLog {
+    id         Int      @id @default(autoincrement())
+    droneId    Int
+    drone      Drone    @relation(fields: [droneId], references: [id])
+    missionId  Int?
+    mission    Mission? @relation(fields: [missionId], references: [id])
+    startLevel Int
+    endLevel   Int
+    cycleCount Int
+    usageDate  DateTime @default(now())
+}

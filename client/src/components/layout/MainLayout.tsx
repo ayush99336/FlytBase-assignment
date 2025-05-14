@@ -5,7 +5,6 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { apiRequest } from '@/lib/queryClient';
 import Header from './Header';
 import Footer from './Footer';
-import TabNavigation from './TabNavigation';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 
 interface MainLayoutProps {
@@ -67,10 +66,6 @@ export function MainLayout({
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      
-      {showTabs && (
-        <TabNavigation tabs={tabs} onChange={onTabChange} />
-      )}
       
       <main className="flex-1">
         <div className="container mx-auto px-4 pt-6">
