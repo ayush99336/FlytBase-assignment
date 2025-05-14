@@ -246,6 +246,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 3000);
   
+  // Simulate random battery drain for drones
+  setInterval(async () => {
+    const drones = await storage.getDrones();
+    for (const drone of drones) {
+      if (drone.status === "Available" && drone.currentBatteryLevel > 0) {
+        // Small random battery drain for idle drones
+        const batteryDrain = Math.random() * 0.5;
+        if (batteryDrain > 0.3) {  // Only drain occasionally
+          const newBatteryLevel = Math.max(10, drone.currentBatteryLevel - batteryDrain);
+          await storage.updateDrone(drone.id, { 
+            currentBatteryLevel: newBatteryLevel
+          });
+          
+          // Broadcast drone update to all clients
+          wss.clients.forEach((client: WsClient) => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({
+                type: 'drone:update',
+                drone: {...drone, currentBatteryLevel: newBatteryLevel}
+              }));
+            }
+          });
+        }
+      }
+    }
+  }, 15000);
+  
+  // Periodically start random missions if none are active
+  setInterval(async () => {
+    const activeMissions = await storage.getActiveMissions();
+    const allMissions = await storage.getMissions();
+    const pendingMissions = allMissions.filter(m => m.status === "Pending");
+    
+    // If no active missions but there are pending ones, start one
+    if (activeMissions.length === 0 && pendingMissions.length > 0) {
+      const missionToStart = pendingMissions[Math.floor(Math.random() * pendingMissions.length)];
+      
+      // Get an available drone
+      const drones = await storage.getDrones();
+      const availableDrones = drones.filter(d => d.status === "Available" && d.currentBatteryLevel > 50);
+      
+      if (availableDrones.length > 0) {
+        const selectedDrone = availableDrones[Math.floor(Math.random() * availableDrones.length)];
+        
+        // Update mission status and assign drone
+        await storage.updateMissionStatus(missionToStart.id, { status: "In Progress" });
+        await storage.updateDrone(selectedDrone.id, { status: "On Mission" });
+        
+        // Create mission log
+        await storage.createMissionLog({
+          missionId: missionToStart.id,
+          logType: "INFO",
+          message: `Mission started with drone ${selectedDrone.name}`
+        });
+        
+        // Broadcast updates
+        broadcastMissionUpdate(missionToStart.id);
+        
+        // Broadcast to all clients
+        wss.clients.forEach((client: WsClient) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+              type: 'mission:started',
+              missionId: missionToStart.id
+            }));
+          }
+        });
+      }
+    }
+  }, 20000);
+  
   /*
    * API Routes
    */

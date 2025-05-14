@@ -6,12 +6,15 @@ import { apiRequest } from '@/lib/queryClient';
 import Header from './Header';
 import Footer from './Footer';
 import TabNavigation from './TabNavigation';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 
 interface MainLayoutProps {
   children: ReactNode;
   showTabs?: boolean;
   tabs?: Array<{ id: string, label: string }>;
   onTabChange?: (tabId: string) => void;
+  breadcrumbs?: Array<{ label: string, href?: string }>;
+  title?: string;
 }
 
 export function MainLayout({ 
@@ -24,7 +27,9 @@ export function MainLayout({
     { id: 'fleet', label: 'Fleet Management' },
     { id: 'reports', label: 'Reports & Analytics' }
   ],
-  onTabChange 
+  onTabChange,
+  breadcrumbs = [],
+  title
 }: MainLayoutProps) {
   const { sendMessage } = useWebSocket();
   const dispatch = useDispatch();
@@ -68,6 +73,20 @@ export function MainLayout({
       )}
       
       <main className="flex-1">
+        <div className="container mx-auto px-4 pt-6">
+          {breadcrumbs.length > 0 && (
+            <Breadcrumb items={breadcrumbs} />
+          )}
+          
+          {title && (
+            <div className="mb-6">
+              <h1 className="text-2xl font-semibold">{title}</h1>
+              {breadcrumbs.length === 0 && (
+                <p className="text-neutral-600">DroneOps Mission Management System</p>
+              )}
+            </div>
+          )}
+        </div>
         {children}
       </main>
       

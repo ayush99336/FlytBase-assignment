@@ -131,10 +131,37 @@ const handleWebSocketMessage = (message: any) => {
         store.dispatch(missionActions.updateMission(message.mission));
       }
       break;
+      
+    case 'mission:started':
+      if (message.missionId) {
+        // Refresh mission lists when a new mission is started
+        fetch('/api/missions')
+          .then(res => res.json())
+          .then(missions => {
+            store.dispatch(missionActions.setMissions(missions));
+          });
+        fetch('/api/missions/active')
+          .then(res => res.json())
+          .then(missions => {
+            store.dispatch(missionActions.setActiveMissions(missions));
+          });
+      }
+      break;
 
     case 'telemetry:update':
       if (message.telemetry) {
         store.dispatch(telemetryActions.addTelemetry(message.telemetry));
+      }
+      break;
+      
+    case 'drone:update':
+      if (message.drone) {
+        // This will update a drone in the store
+        fetch('/api/drones')
+          .then(res => res.json())
+          .then(drones => {
+            store.dispatch({ type: 'drones/setDrones', payload: drones });
+          });
       }
       break;
 
