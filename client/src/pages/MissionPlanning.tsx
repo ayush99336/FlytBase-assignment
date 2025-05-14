@@ -24,10 +24,16 @@ export function MissionPlanning() {
   };
   
   return (
-    <MainLayout>
-      <div className="container mx-auto px-4 py-6">
+    <MainLayout
+      title="Mission Planning"
+      breadcrumbs={[
+        { label: 'Missions', href: '/missions/plan' },
+        { label: 'Planning' }
+      ]}
+    >
+      <div className="container mx-auto px-4 pb-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold">Mission Planning</h1>
+          <p className="text-neutral-600">Configure drone missions and survey parameters</p>
           <div>
             <Button className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition flex items-center">
               <Plus className="mr-2 h-5 w-5" /> Create New Mission

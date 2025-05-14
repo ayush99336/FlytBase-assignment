@@ -17,11 +17,15 @@ export function FleetManagement() {
   }, [dispatch]);
   
   return (
-    <MainLayout>
-      <div className="container mx-auto px-4 py-6">
+    <MainLayout
+      title="Fleet Management"
+      breadcrumbs={[
+        { label: 'Fleet', href: '/fleet' }
+      ]}
+    >
+      <div className="container mx-auto px-4 pb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold">Fleet Management</h1>
             <p className="text-neutral-600">Monitor and manage your organization's drone fleet</p>
           </div>
           <div className="flex items-center space-x-2">

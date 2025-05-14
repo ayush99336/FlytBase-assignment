@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState, missionActions } from '@/lib/store';
+import { RootState, missionActions, uiActions } from '@/lib/store';
 import { apiRequest } from '@/lib/queryClient';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import MainLayout from '@/components/layout/MainLayout';
@@ -80,11 +80,16 @@ export function MissionMonitoring() {
   };
   
   return (
-    <MainLayout>
-      <div className="container mx-auto px-4 py-6">
+    <MainLayout 
+      title="Mission Monitoring"
+      breadcrumbs={[
+        { label: 'Missions', href: '/missions/plan' },
+        { label: 'Monitoring' }
+      ]}
+    >
+      <div className="container mx-auto px-4 pb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold">Mission Monitoring</h1>
             <p className="text-neutral-600">Real-time tracking and control of drone operations</p>
           </div>
           <div className="flex items-center space-x-2">
