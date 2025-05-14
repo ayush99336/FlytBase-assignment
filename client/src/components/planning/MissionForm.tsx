@@ -25,6 +25,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 
 // Extend the schema with more validations
 const missionFormSchema = insertMissionSchema.extend({
@@ -59,6 +61,9 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
     imageOverlap: 75,
     patternType: 'Grid',
     flightPath: surveyAreaGeoJson || { type: 'LineString', coordinates: [] },
+    dataFrequency: 10,
+    sensors: [],
+    waypoints: JSON.stringify([]),
   };
 
   const form = useForm<MissionFormValues>({
@@ -69,11 +74,20 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
   const onSubmit = async (data: MissionFormValues) => {
     setIsSubmitting(true);
     try {
-      // Format the scheduledAt date if it exists
+      // Parse waypoints JSON
+      let parsedWaypoints = null;
+      try {
+        parsedWaypoints = data.waypoints ? JSON.parse(data.waypoints as any) : null;
+      } catch {
+        throw new Error('Invalid JSON in waypoints');
+      }
       const formattedData = {
         ...data,
         scheduledAt: data.scheduledAt ? new Date(data.scheduledAt).toISOString() : undefined,
         droneId: Number(data.droneId),
+        dataFrequency: data.dataFrequency,
+        sensors: data.sensors,
+        waypoints: parsedWaypoints,
       };
 
       const response = await apiRequest('POST', '/api/missions', formattedData);
@@ -90,11 +104,11 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
 
       // Reset form
       form.reset(defaultValues);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating mission:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create mission. Please try again.',
+        description: error.message || 'Failed to create mission',
         variant: 'destructive',
       });
     } finally {
@@ -342,6 +356,79 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
                   <FormControl>
                     <Input type="hidden" {...field} />
                   </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* Data Collection Frequency */}
+            <FormField
+              control={form.control}
+              name="dataFrequency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium text-neutral-700">Data Frequency (sec)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={60}
+                      {...field}
+                      onChange={e => field.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Sensors Selection */}
+            <FormField
+              control={form.control}
+              name="sensors"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium text-neutral-700">Sensors to Use</FormLabel>
+                  <div className="space-y-2">
+                    {['RGB Camera','Thermal Camera','LiDAR','Multispectral'].map(sensor => (
+                      <FormItem key={sensor} className="flex items-center space-x-2">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value?.includes(sensor) || false}
+                            onCheckedChange={checked => {
+                              const vals = field.value || [];
+                              field.onChange(
+                                checked
+                                  ? [...vals, sensor]
+                                  : vals.filter(v => v !== sensor)
+                              );
+                            }}
+                          />
+                        </FormControl>
+                        <FormLabel className="text-sm font-normal text-neutral-700">{sensor}</FormLabel>
+                      </FormItem>
+                    ))}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Waypoints JSON */}
+            <FormField
+              control={form.control}
+              name="waypoints"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium text-neutral-700">Waypoints (JSON)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={3}
+                      placeholder='[{"lat": 0, "lng": 0}]'
+                      {...field}
+                      onChange={e => field.onChange(e.target.value)}
+                    />
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />

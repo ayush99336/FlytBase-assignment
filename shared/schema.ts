@@ -33,6 +33,10 @@ export const insertMissionSchema = z.object({
   speed: z.number().optional().nullable(),
   imageOverlap: z.number().optional().nullable(),
   patternType: z.string().optional().nullable(),
+  // New fields for configuration
+  dataFrequency: z.number().min(1).max(60).optional(),
+  sensors: z.array(z.string()).optional(),
+  waypoints: z.any().optional(),
 });
 
 export const insertTelemetrySchema = z.object({

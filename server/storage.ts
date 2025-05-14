@@ -20,7 +20,7 @@ export interface IStorage {
   getMissions(): Promise<Mission[]>;
   getActiveMissions(): Promise<Mission[]>;
   getMissionById(id: number): Promise<Mission | null>;
-  createMission(mission: Omit<Mission, "id">): Promise<Mission>;
+  createMission(mission: Prisma.MissionCreateInput): Promise<Mission>;
   updateMissionStatus(id: number, update: UpdateMissionStatus): Promise<Mission | null>;
   updateMissionProgress(id: number, update: UpdateMissionProgress): Promise<Mission | null>;
 
@@ -64,12 +64,15 @@ export class DatabaseStorage implements IStorage {
   async getMissionById(id: number) {
     return prisma.mission.findUnique({ where: { id } });
   }
-  async createMission(mission: Omit<Mission, "id">) {
+  async createMission(mission: Prisma.MissionCreateInput) {
     return prisma.mission.create({
       data: {
         ...mission,
-        flightPath: toPrismaJson(mission.flightPath),
-        actualPath: toPrismaJson(mission.actualPath),
+        flightPath: toPrismaJson((mission as any).flightPath),
+        actualPath: toPrismaJson((mission as any).actualPath),
+        dataFrequency: (mission as any).dataFrequency ?? null,
+        sensors: (mission as any).sensors ? toPrismaJson((mission as any).sensors) : undefined,
+        waypoints: (mission as any).waypoints ? toPrismaJson((mission as any).waypoints) : undefined,
       },
     });
   }

@@ -10,15 +10,9 @@ export function Footer() {
             &copy; {new Date().getFullYear()} DroneOps. All rights reserved.
           </div>
           <div className="flex items-center space-x-4 mt-4 md:mt-0">
-            <Link href="/privacy">
-              <a className="text-sm text-neutral-600 hover:text-primary">Privacy Policy</a>
-            </Link>
-            <Link href="/terms">
-              <a className="text-sm text-neutral-600 hover:text-primary">Terms of Service</a>
-            </Link>
-            <Link href="/support">
-              <a className="text-sm text-neutral-600 hover:text-primary">Contact Support</a>
-            </Link>
+            <Link href="/privacy" className="text-sm text-neutral-600 hover:text-primary">Privacy Policy</Link>
+            <Link href="/terms" className="text-sm text-neutral-600 hover:text-primary">Terms of Service</Link>
+            <Link href="/support" className="text-sm text-neutral-600 hover:text-primary">Contact Support</Link>
           </div>
         </div>
       </div>

@@ -74,12 +74,7 @@ export function ActiveMissions() {
                         <div className="text-xs text-neutral-500">ID: {mission.droneInfo?.serialNumber}</div>
                       </TableCell>
                       <TableCell>
-                        <div className="w-full bg-neutral-300 rounded-full h-2">
-                          <div 
-                            className="bg-primary h-2 rounded-full" 
-                            style={{ width: `${mission.progress}%` }}
-                          ></div>
-                        </div>
+                        <Progress value={mission.progress} className="w-full h-2 bg-neutral-300" indicatorClassName="bg-primary" />
                         <div className="text-xs text-neutral-500 mt-1">{mission.progress}% Complete</div>
                       </TableCell>
                       <TableCell>

@@ -1,6 +1,5 @@
 import { store } from './store';
 import { missionActions, telemetryActions, missionLogActions } from './store';
-import type { Mission, MissionLog, Telemetry } from '@shared/schema';
 
 let socket: WebSocket | null = null;
 let reconnectInterval: NodeJS.Timeout | null = null;
@@ -14,11 +13,28 @@ export const initializeWebSocket = () => {
 
   try {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    let host = window.location.hostname;
+    let port = window.location.port;
+    let wsPort = port;
+    // If running in development (Vite), use backend port if specified
+    if (import.meta && import.meta.env && import.meta.env.VITE_WS_PORT) {
+      wsPort = import.meta.env.VITE_WS_PORT;
+      console.log('[WebSocket] Using VITE_WS_PORT from env:', wsPort);
+    } else if (!wsPort || wsPort === "") {
+      wsPort = protocol === "wss:" ? "443" : "80";
+      console.log('[WebSocket] No port detected, using default for protocol:', wsPort);
+    }
+    // If running on localhost and frontend is on 3000, default backend to 5000
+    if (host === "localhost" && port === "3000") {
+      wsPort = "5000";
+      console.log('[WebSocket] Detected localhost:3000, using backend port 5000');
+    }
+    const wsUrl = `${protocol}//${host}:${wsPort}/ws`;
+    console.log('[WebSocket] Attempting connection to:', wsUrl);
     socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
-      console.log('WebSocket connection established');
+      console.log('[WebSocket] Connection established:', wsUrl);
       reconnectAttempts = 0;
       if (reconnectInterval) {
         clearInterval(reconnectInterval);
@@ -31,12 +47,12 @@ export const initializeWebSocket = () => {
         const data = JSON.parse(event.data);
         handleWebSocketMessage(data);
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+        console.error('[WebSocket] Error parsing message:', error, event.data);
       }
     };
 
     socket.onclose = (event) => {
-      console.log('WebSocket connection closed:', event.code, event.reason);
+      console.log('[WebSocket] Connection closed:', event.code, event.reason, wsUrl);
       socket = null;
 
       // Attempt to reconnect if not closed cleanly and haven't reached max attempts
@@ -58,12 +74,12 @@ export const initializeWebSocket = () => {
     };
 
     socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      console.error('[WebSocket] Error event:', error, wsUrl);
     };
 
     return socket;
   } catch (error) {
-    console.error('Error initializing WebSocket:', error);
+    console.error('[WebSocket] Exception during initialization:', error);
     return null;
   }
 };

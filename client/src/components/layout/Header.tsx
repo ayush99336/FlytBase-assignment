@@ -22,33 +22,31 @@ export function Header() {
     <header className="bg-white border-b border-neutral-300 shadow-sm">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center">
-          <Link href="/">
-            <a className="font-bold text-xl text-primary flex items-center">
-              <Focus className="mr-2" />
-              DroneOps
-            </a>
+          <Link href="/" className="font-bold text-xl text-primary flex items-center">
+            <Focus className="mr-2" />
+            DroneOps
           </Link>
           
           <nav className="ml-10 hidden md:flex">
             <Link href="/">
-              <a className={`px-3 py-2 ${location === '/' ? 'text-primary' : 'text-neutral-600 hover:text-primary'} transition`}>
+              <span className={`px-3 py-2 ${location === '/' ? 'text-primary' : 'text-neutral-600 hover:text-primary'} transition`}>
                 Dashboard
-              </a>
+              </span>
             </Link>
             <Link href="/missions">
-              <a className={`px-3 py-2 ${location.includes('/missions') ? 'text-primary' : 'text-neutral-600 hover:text-primary'} transition`}>
+              <span className={`px-3 py-2 ${location.includes('/missions') ? 'text-primary' : 'text-neutral-600 hover:text-primary'} transition`}>
                 Missions
-              </a>
+              </span>
             </Link>
             <Link href="/fleet">
-              <a className={`px-3 py-2 ${location === '/fleet' ? 'text-primary' : 'text-neutral-600 hover:text-primary'} transition`}>
+              <span className={`px-3 py-2 ${location === '/fleet' ? 'text-primary' : 'text-neutral-600 hover:text-primary'} transition`}>
                 Fleet
-              </a>
+              </span>
             </Link>
             <Link href="/analytics">
-              <a className={`px-3 py-2 ${location === '/analytics' ? 'text-primary' : 'text-neutral-600 hover:text-primary'} transition`}>
+              <span className={`px-3 py-2 ${location === '/analytics' ? 'text-primary' : 'text-neutral-600 hover:text-primary'} transition`}>
                 Analytics
-              </a>
+              </span>
             </Link>
           </nav>
         </div>

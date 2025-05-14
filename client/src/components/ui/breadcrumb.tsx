@@ -30,9 +30,9 @@ const Breadcrumb = ({
       <ol className="flex items-center space-x-2">
         <li>
           <Link href={homeHref}>
-            <a className="flex items-center hover:text-primary transition-colors">
+            <span className="flex items-center hover:text-primary transition-colors">
               <Home className="h-4 w-4" />
-            </a>
+            </span>
           </Link>
         </li>
         {items.map((item, index) => (
@@ -40,9 +40,9 @@ const Breadcrumb = ({
             <ChevronRight className="h-4 w-4 text-neutral-400" />
             {item.href ? (
               <Link href={item.href}>
-                <a className="hover:text-primary transition-colors">
+                <span className="hover:text-primary transition-colors">
                   {item.label}
-                </a>
+                </span>
               </Link>
             ) : (
               <span className="text-neutral-900 font-medium">{item.label}</span>

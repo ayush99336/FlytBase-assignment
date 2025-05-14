@@ -35,11 +35,8 @@ function App() {
   // Initialize WebSocket connection
   useEffect(() => {
     initializeWebSocket();
-    return () => {
-      // Clean up WebSocket connection on unmount
-      // This won't actually happen for the main App component,
-      // but it's good practice
-    };
+    // If initializeWebSocket returns a cleanup function in the future, add it here.
+    return () => {};
   }, []);
   
   return (

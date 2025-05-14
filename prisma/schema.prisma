@@ -45,6 +45,10 @@ model Mission {
     speed         Int?
     imageOverlap  Int?
     patternType   String?
+    // New mission configuration fields
+    dataFrequency Int? // seconds between data collection
+    sensors       Json? // list of sensors to use
+    waypoints     Json? // custom waypoints JSON
     telemetry     Telemetry[]
     logs          MissionLog[]
     batteryLogs   BatteryLog[]

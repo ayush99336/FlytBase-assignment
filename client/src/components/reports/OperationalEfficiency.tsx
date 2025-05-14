@@ -52,7 +52,7 @@ export function OperationalEfficiency() {
           <Progress 
             value={planningEfficiency} 
             className="w-full h-2 bg-neutral-300"
-            indicatorClassName="bg-success"
+            indicatorClassName="bg-green-500" // green for planning
           />
           <p className="text-xs text-neutral-600 mt-1">
             Average time from planning to execution: {avgPlanningToExecution} days
@@ -67,7 +67,7 @@ export function OperationalEfficiency() {
           <Progress 
             value={flightExecutionEfficiency} 
             className="w-full h-2 bg-neutral-300"
-            indicatorClassName="bg-primary"
+            indicatorClassName="bg-primary" // blue for execution
           />
           <p className="text-xs text-neutral-600 mt-1">
             Missions completed as planned without intervention
@@ -82,7 +82,7 @@ export function OperationalEfficiency() {
           <Progress 
             value={batteryUtilization} 
             className="w-full h-2 bg-neutral-300"
-            indicatorClassName="bg-warning"
+            indicatorClassName="bg-yellow-600" // yellow for battery
           />
           <p className="text-xs text-neutral-600 mt-1">
             Average battery consumption per mission area
@@ -97,7 +97,7 @@ export function OperationalEfficiency() {
           <Progress 
             value={fleetAvailability} 
             className="w-full h-2 bg-neutral-300"
-            indicatorClassName="bg-success"
+            indicatorClassName="bg-cyan-500" // fallback to Tailwind cyan if bg-info is not working
           />
           <p className="text-xs text-neutral-600 mt-1">
             Percentage of fleet ready for deployment
