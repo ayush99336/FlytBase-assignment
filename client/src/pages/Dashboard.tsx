@@ -18,10 +18,15 @@ export function Dashboard() {
   }, [dispatch]);
   
   return (
-    <MainLayout>
-      <div className="container mx-auto px-4 py-6">
+    <MainLayout
+      title="Dashboard"
+      breadcrumbs={[
+        { label: 'Home', href: '/' }
+      ]}
+    >
+      <div className="container mx-auto px-4 pb-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <p className="text-neutral-600">Overview of drone operations and mission activities</p>
           <div className="flex items-center space-x-2">
             <span className="text-sm text-neutral-600">Last updated: 2 minutes ago</span>
             <Button variant="ghost" size="icon" className="rounded-full">
