@@ -502,8 +502,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   constructor() {
-    // We'll let the application handle database seeding after tables are created
-    // The database push needs to happen first
+    // Seed the database when initialized
+    this.seedData();
   }
 }
 

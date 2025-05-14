@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, boolean, timestamp, json, decimal, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
 // Drone model
 export const drones = pgTable("drones", {
@@ -104,6 +105,51 @@ export const insertBatteryLogSchema = createInsertSchema(batteryLogs).omit({
   id: true,
   usageDate: true
 });
+
+// Relations
+export const dronesRelations = relations(drones, ({ one, many }) => ({
+  lastMissionRel: one(missions, {
+    fields: [drones.lastMission],
+    references: [missions.id]
+  }),
+  missions: many(missions),
+  batteryLogs: many(batteryLogs)
+}));
+
+export const missionsRelations = relations(missions, ({ one, many }) => ({
+  drone: one(drones, {
+    fields: [missions.droneId],
+    references: [drones.id]
+  }),
+  telemetryData: many(telemetry),
+  logs: many(missionLogs),
+  batteryLogs: many(batteryLogs)
+}));
+
+export const telemetryRelations = relations(telemetry, ({ one }) => ({
+  mission: one(missions, {
+    fields: [telemetry.missionId],
+    references: [missions.id]
+  })
+}));
+
+export const missionLogsRelations = relations(missionLogs, ({ one }) => ({
+  mission: one(missions, {
+    fields: [missionLogs.missionId],
+    references: [missions.id]
+  })
+}));
+
+export const batteryLogsRelations = relations(batteryLogs, ({ one }) => ({
+  drone: one(drones, {
+    fields: [batteryLogs.droneId],
+    references: [drones.id]
+  }),
+  mission: one(missions, {
+    fields: [batteryLogs.missionId],
+    references: [missions.id]
+  })
+}));
 
 // Types
 export type Drone = typeof drones.$inferSelect;
