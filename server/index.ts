@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { storage } from "./storage";
 
 const app = express();
 app.use(express.json());
@@ -66,5 +67,16 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Seed the database after server is started
+    try {
+      storage.seedData().then(() => {
+        log("Database seeded successfully");
+      }).catch(err => {
+        log(`Database seeding error: ${err.message}`, "error");
+      });
+    } catch (err: any) {
+      log(`Error initializing database: ${err.message}`, "error");
+    }
   });
 })();
