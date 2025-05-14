@@ -66,7 +66,7 @@ export function BatteryHealth() {
               <Progress 
                 value={excellentPercentage} 
                 className="h-3 bg-neutral-300"
-                indicatorClassName="bg-success"
+                indicatorClassName="bg-green-500"
               />
             </div>
             <div>
@@ -77,7 +77,7 @@ export function BatteryHealth() {
               <Progress 
                 value={goodPercentage} 
                 className="h-3 bg-neutral-300"
-                indicatorClassName="bg-primary"
+                indicatorClassName="bg-blue-500"
               />
             </div>
             <div>
@@ -88,7 +88,7 @@ export function BatteryHealth() {
               <Progress 
                 value={fairPercentage} 
                 className="h-3 bg-neutral-300"
-                indicatorClassName="bg-warning"
+                indicatorClassName="bg-yellow-400"
               />
             </div>
             <div>
@@ -99,7 +99,7 @@ export function BatteryHealth() {
               <Progress 
                 value={poorPercentage} 
                 className="h-3 bg-neutral-300"
-                indicatorClassName="bg-danger"
+                indicatorClassName="bg-red-500"
               />
             </div>
           </div>

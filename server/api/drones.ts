@@ -25,6 +25,7 @@ router.post("/", async (req, res) => {
       ...droneData,
       flightHours: new Prisma.Decimal(droneData.flightHours ?? 0),
       lastMissionId: droneData.lastMissionId ?? null,
+      healthStatus: droneData.healthStatus ?? "",
     });
     res.status(201).json(drone);
   } catch (error) {

@@ -18,10 +18,27 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 export function MissionReports() {
   const missions = useSelector((state: RootState) => state.missions.missions);
-  
+  const reportRef = React.useRef<HTMLDivElement>(null);
+
+  const handleExportPDF = async () => {
+    if (!reportRef.current) return;
+    // Wait for DOM to render
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    html2canvas(reportRef.current, { scale: 2 }).then(canvas => {
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save("mission-reports.pdf");
+    });
+  };
+
   // Get the most recent missions
   const recentMissions = [...missions]
     .sort((a, b) => {
@@ -35,12 +52,17 @@ export function MissionReports() {
     <Card className="overflow-hidden">
       <CardHeader className="p-4 border-b border-neutral-300 flex justify-between items-center">
         <CardTitle className="font-medium">Recent Mission Reports</CardTitle>
-        <Button variant="link" className="text-primary hover:text-primary/80 text-sm">
-          View All Reports
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="link" className="text-primary hover:text-primary/80 text-sm">
+            View All Reports
+          </Button>
+          <Button variant="outline" className="text-sm" onClick={handleExportPDF}>
+            Export PDF
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" ref={reportRef}>
           <Table>
             <TableHeader className="bg-neutral-200">
               <TableRow>

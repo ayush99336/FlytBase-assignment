@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { uiActions } from '@/lib/store';
 import MainLayout from '@/components/layout/MainLayout';
@@ -16,16 +16,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 export function ReportsAnalytics() {
   const dispatch = useDispatch();
   const [timeRange, setTimeRange] = useState('30days');
-  
+  const analyticsRef = useRef<HTMLDivElement>(null);
+
   // Set active tab on component mount
   useEffect(() => {
     dispatch(uiActions.setActiveTab('reports'));
   }, [dispatch]);
-  
+
+  const handleExportPDF = async () => {
+    if (!analyticsRef.current) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    html2canvas(analyticsRef.current, { scale: 2 }).then(canvas => {
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save("analytics-report.pdf");
+    });
+  };
+
   return (
     <MainLayout
       title="Reports & Analytics"
@@ -33,7 +49,7 @@ export function ReportsAnalytics() {
         { label: 'Reports', href: '/reports' }
       ]}
     >
-      <div className="container mx-auto px-4 pb-6">
+      <div className="container mx-auto px-4 pb-6" ref={analyticsRef}>
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-neutral-600">Analyze mission performance and drone operations</p>
@@ -54,7 +70,7 @@ export function ReportsAnalytics() {
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="secondary" className="flex items-center">
+            <Button variant="secondary" className="flex items-center" onClick={handleExportPDF}>
               <Download className="mr-2 h-4 w-4" /> Export Report
             </Button>
           </div>
