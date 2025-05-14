@@ -227,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const drone = await storage.getDroneById(mission.droneId);
               if (drone) {
                 await storage.updateDrone(drone.id, { 
-                  currentBatteryLevel: Math.max(10, drone.currentBatteryLevel - 20),
+                  currentBatteryLevel: Math.floor(Math.max(10, drone.currentBatteryLevel - 20)),
                   status: "Available" 
                 });
               }
@@ -254,7 +254,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Small random battery drain for idle drones
         const batteryDrain = Math.random() * 0.5;
         if (batteryDrain > 0.3) {  // Only drain occasionally
-          const newBatteryLevel = Math.max(10, drone.currentBatteryLevel - batteryDrain);
+          const newBatteryLevel = Math.floor(Math.max(10, drone.currentBatteryLevel - batteryDrain));
           await storage.updateDrone(drone.id, { 
             currentBatteryLevel: newBatteryLevel
           });
