@@ -1,0 +1,154 @@
+import { store } from './store';
+import { missionActions, telemetryActions, missionLogActions } from './store';
+import type { Mission, MissionLog, Telemetry } from '@shared/schema';
+
+let socket: WebSocket | null = null;
+let reconnectInterval: NodeJS.Timeout | null = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+
+export const initializeWebSocket = () => {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    return socket;
+  }
+
+  try {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      console.log('WebSocket connection established');
+      reconnectAttempts = 0;
+      if (reconnectInterval) {
+        clearInterval(reconnectInterval);
+        reconnectInterval = null;
+      }
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleWebSocketMessage(data);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+
+    socket.onclose = (event) => {
+      console.log('WebSocket connection closed:', event.code, event.reason);
+      socket = null;
+
+      // Attempt to reconnect if not closed cleanly and haven't reached max attempts
+      if (!event.wasClean && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        reconnectInterval = setInterval(() => {
+          reconnectAttempts++;
+          console.log(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+          initializeWebSocket();
+
+          if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            if (reconnectInterval) {
+              clearInterval(reconnectInterval);
+              reconnectInterval = null;
+              console.error('Max reconnect attempts reached');
+            }
+          }
+        }, 3000);
+      }
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    return socket;
+  } catch (error) {
+    console.error('Error initializing WebSocket:', error);
+    return null;
+  }
+};
+
+export const closeWebSocket = () => {
+  if (socket) {
+    socket.close();
+    socket = null;
+  }
+
+  if (reconnectInterval) {
+    clearInterval(reconnectInterval);
+    reconnectInterval = null;
+  }
+};
+
+export const sendWebSocketMessage = (message: any) => {
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    socket = initializeWebSocket();
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      console.error('Cannot send message, WebSocket is not open');
+      return false;
+    }
+  }
+
+  try {
+    socket.send(JSON.stringify(message));
+    return true;
+  } catch (error) {
+    console.error('Error sending WebSocket message:', error);
+    return false;
+  }
+};
+
+export const subscribeMission = (missionId: number) => {
+  return sendWebSocketMessage({
+    type: 'subscribe:mission',
+    missionId
+  });
+};
+
+export const unsubscribeMission = (missionId: number) => {
+  return sendWebSocketMessage({
+    type: 'unsubscribe:mission',
+    missionId
+  });
+};
+
+export const sendTelemetryUpdate = (telemetry: any, actualPath?: any) => {
+  return sendWebSocketMessage({
+    type: 'telemetry:update',
+    telemetry,
+    actualPath
+  });
+};
+
+const handleWebSocketMessage = (message: any) => {
+  switch (message.type) {
+    case 'missions:active':
+      store.dispatch(missionActions.setActiveMissions(message.missions));
+      break;
+
+    case 'mission:update':
+      if (message.mission) {
+        store.dispatch(missionActions.updateMission(message.mission));
+      }
+      break;
+
+    case 'telemetry:update':
+      if (message.telemetry) {
+        store.dispatch(telemetryActions.addTelemetry(message.telemetry));
+      }
+      break;
+
+    case 'mission:log':
+      if (message.log) {
+        store.dispatch(missionLogActions.addMissionLog(message.log));
+      }
+      break;
+
+    case 'error':
+      console.error('WebSocket error:', message.message);
+      break;
+
+    default:
+      console.log('Unknown WebSocket message type:', message.type);
+  }
+};
