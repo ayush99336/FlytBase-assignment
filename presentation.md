@@ -157,8 +157,5 @@ DroneOperationsCentral is a complete solution for managing drone survey operatio
 
 **Questions?**
 
-Ayush Kumar
-ayush.kumar@example.com
-github.com/ayush-kumar
 
 *DroneOperationsCentral - Empowering efficient drone operations*
