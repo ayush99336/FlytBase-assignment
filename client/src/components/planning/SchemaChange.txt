@@ -1,0 +1,15 @@
+// Extend the schema with more validations and coerce droneId to number
+const missionFormSchema = insertMissionSchema.extend({
+  name: z.string().min(3, { message: "Mission name must be at least 3 characters long" }),
+  location: z.string().min(3, { message: "Location must be specified" }),
+  altitude: z.number().min(10, { message: "Minimum altitude is 10 meters" }).max(400, { message: "Maximum altitude is 400 meters" }),
+  speed: z.number().min(1, { message: "Minimum speed is 1 m/s" }).max(20, { message: "Maximum speed is 20 m/s" }),
+  // Coerce string values into numbers for droneId
+  droneId: z.coerce.number().optional().nullable(),
+  // Ensure scheduledAt is properly handled as a date
+  scheduledAt: z.preprocess(
+    // Convert string to Date if needed
+    (val) => (val === '' || val === null || val === undefined) ? undefined : new Date(val as string),
+    z.date().optional().nullable()
+  ),
+});

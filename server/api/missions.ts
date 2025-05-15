@@ -25,30 +25,32 @@ router.get("/:id", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
+    // Zod will turn that ISO string into a Date for you
     const missionData = insertMissionSchema.parse(req.body);
-    const mission = await storage.createMission({
+
+    // No need to check `typeof missionData.scheduledAt === 'string'` any more
+    const prismaData: any = {
       ...missionData,
-      droneId: missionData.droneId ?? null,
       createdAt: missionData.createdAt ?? new Date(),
-      scheduledAt: missionData.scheduledAt ?? null,
-      startedAt: missionData.startedAt ?? null,
-      completedAt: missionData.completedAt ?? null,
-      duration: missionData.duration ?? null,
-      actualPath: missionData.actualPath ?? null,
-      altitude: missionData.altitude ?? null,
-      speed: missionData.speed ?? null,
-      imageOverlap: missionData.imageOverlap ?? null,
-      patternType: missionData.patternType ?? null,
-      // New fields
-      dataFrequency: missionData.dataFrequency ?? null,
-      sensors: missionData.sensors ?? [],
-      waypoints: missionData.waypoints ?? null
-    });
-    res.status(201).json(mission);
-  } catch (error) {
-    res.status(400).json({ message: "Invalid mission data" });
+    };
+
+    if (missionData.droneId) {
+      prismaData.drone = { connect: { id: missionData.droneId } };
+      delete prismaData.droneId;
+    }
+
+    const mission = await storage.createMission(prismaData);
+    return res.status(201).json(mission);
+  } catch (err) {
+    if (err instanceof ZodError) {
+      // now you’ll see exactly which field failed and why
+      return res.status(400).json({ message: "Validation failed", issues: err.errors });
+    }
+    console.error(err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
+
 
 router.post("/simulate", async (req, res) => {
   try {

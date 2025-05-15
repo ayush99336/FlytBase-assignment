@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, missionActions, uiActions } from '@/lib/store';
 import { apiRequest } from '@/lib/queryClient';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useLocation } from 'wouter';
 import MainLayout from '@/components/layout/MainLayout';
 import MissionMap from '@/components/monitoring/MissionMap';
 import MissionControls from '@/components/monitoring/MissionControls';
@@ -20,10 +21,23 @@ import {
 export function MissionMonitoring() {
   const dispatch = useDispatch();
   const { subscribeMissionUpdates, unsubscribeMissionUpdates } = useWebSocket();
-  
   const activeMissions = useSelector((state: RootState) => state.missions.activeMissions);
   const [selectedMissionId, setSelectedMissionId] = useState<number | null>(null);
-  
+  const [showControls, setShowControls] = useState(false);
+  const [location] = useLocation();
+
+  // Parse query string for mission selection
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const missionParam = params.get('mission');
+    const controlParam = params.get('control');
+    if (missionParam) {
+      const missionId = parseInt(missionParam);
+      if (!isNaN(missionId)) setSelectedMissionId(missionId);
+    }
+    if (controlParam === '1') setShowControls(true);
+  }, [location]);
+
   // Set active tab on component mount
   useEffect(() => {
     dispatch(uiActions.setActiveTab('monitor'));
@@ -122,9 +136,11 @@ export function MissionMonitoring() {
             <MissionMap missionId={selectedMissionId!} />
             
             {/* Floating Mission Control Panel */}
-            <div className="absolute mission-control-panel bottom-6 left-1/2 transform -translate-x-1/2 w-full px-4">
-              {selectedMissionId && <MissionControls missionId={selectedMissionId} />}
-            </div>
+            {(showControls || selectedMissionId) && (
+              <div className="absolute mission-control-panel bottom-6 left-1/2 transform -translate-x-1/2 w-full px-4">
+                {selectedMissionId && <MissionControls missionId={selectedMissionId} />}
+              </div>
+            )}
           </div>
           
           {/* Status and Telemetry */}

@@ -24,7 +24,7 @@ export function Header() {
         <div className="flex items-center">
           <Link href="/" className="font-bold text-xl text-primary flex items-center">
             <Focus className="mr-2" />
-            DroneOps
+            Flytbase
           </Link>
           
           <nav className="ml-10 hidden md:flex">

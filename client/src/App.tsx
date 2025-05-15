@@ -24,6 +24,7 @@ function Router() {
       <Route path="/missions" component={Missions} />
       <Route path="/missions/plan" component={MissionPlanning} />
       <Route path="/missions/monitor" component={MissionMonitoring} />
+      <Route path="/monitor" component={MissionMonitoring} />
       <Route path="/fleet" component={FleetManagement} />
       <Route path="/analytics" component={ReportsAnalytics} />
       <Route component={NotFound} />

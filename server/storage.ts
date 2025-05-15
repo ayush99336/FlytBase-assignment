@@ -16,6 +16,7 @@ export interface IStorage {
   getDroneById(id: number): Promise<Drone | null>;
   createDrone(drone: Omit<Drone, "id">): Promise<Drone>;
   updateDrone(id: number, drone: Partial<Drone>): Promise<Drone | null>;
+  deleteDrone(id: number): Promise<Drone>;
 
   getMissions(): Promise<Mission[]>;
   getActiveMissions(): Promise<Mission[]>;
@@ -53,6 +54,9 @@ export class DatabaseStorage implements IStorage {
   }
   async updateDrone(id: number, drone: Partial<Drone>) {
     return prisma.drone.update({ where: { id }, data: drone });
+  }
+  async deleteDrone(id: number) {
+    return prisma.drone.delete({ where: { id } });
   }
 
   async getMissions() {

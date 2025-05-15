@@ -33,4 +33,40 @@ router.post("/", async (req, res) => {
   }
 });
 
+router.patch("/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const drone = await storage.getDroneById(id);
+    if (!drone) {
+      return res.status(404).json({ message: "Drone not found" });
+    }
+
+    // Convert flightHours to Decimal if present
+    let updateData = req.body;
+    if (updateData.flightHours !== undefined) {
+      updateData.flightHours = new Prisma.Decimal(updateData.flightHours);
+    }
+
+    const updatedDrone = await storage.updateDrone(id, updateData);
+    res.json(updatedDrone);
+  } catch (error) {
+    res.status(400).json({ message: "Failed to update drone" });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const drone = await storage.getDroneById(id);
+    if (!drone) {
+      return res.status(404).json({ message: "Drone not found" });
+    }
+
+    await storage.deleteDrone(id);
+    res.status(204).send();
+  } catch (error) {
+    res.status(400).json({ message: "Failed to delete drone" });
+  }
+});
+
 export default router;

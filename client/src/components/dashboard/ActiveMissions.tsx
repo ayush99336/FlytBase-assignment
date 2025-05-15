@@ -83,10 +83,10 @@ export function ActiveMissions() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Link href={`/missions/${mission.id}`}>
+                        <Link href={`/monitor?mission=${mission.id}`}>
                           <Button variant="link" className="text-primary hover:text-primary-dark mr-3">View</Button>
                         </Link>
-                        <Link href={`/missions/${mission.id}/control`}>
+                        <Link href={`/monitor?mission=${mission.id}&control=1`}>
                           <Button variant="link" className="text-neutral-600 hover:text-neutral-900">Control</Button>
                         </Link>
                       </TableCell>

@@ -73,7 +73,11 @@ export function MissionControls({ missionId }: MissionControlsProps) {
       if (!response.ok) {
         throw new Error('Failed to update mission status');
       }
-      
+
+      // Optimistically update Redux store for instant UI feedback
+      const updatedMission = { ...mission, status: newStatus };
+      dispatch({ type: 'missions/updateMission', payload: updatedMission });
+
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['/api/missions'] });
       queryClient.invalidateQueries({ queryKey: ['/api/missions/active'] });
@@ -146,7 +150,16 @@ export function MissionControls({ missionId }: MissionControlsProps) {
             <Play className="mr-2 h-4 w-4" /> Start
           </Button>
         )}
-        
+        {mission.status === 'Pending' && (
+          <Button
+            variant="secondary"
+            className="flex items-center justify-center"
+            onClick={() => handleMissionControl('resume')}
+            disabled={isUpdating}
+          >
+            <Play className="mr-2 h-4 w-4" /> Continue
+          </Button>
+        )}
         {mission.status === 'In Progress' && (
           <Button
             variant="secondary"
@@ -157,7 +170,6 @@ export function MissionControls({ missionId }: MissionControlsProps) {
             <Pause className="mr-2 h-4 w-4" /> Pause
           </Button>
         )}
-        
         {mission.status === 'Paused' && (
           <Button
             variant="secondary"
@@ -168,7 +180,6 @@ export function MissionControls({ missionId }: MissionControlsProps) {
             <Play className="mr-2 h-4 w-4" /> Resume
           </Button>
         )}
-        
         {(mission.status === 'In Progress' || mission.status === 'Paused') && (
           <>
             <Button

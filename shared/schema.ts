@@ -22,7 +22,8 @@ export const insertMissionSchema = z.object({
   area: z.number(),
   droneId: z.number().optional().nullable(),
   createdAt: z.date().optional(),
-  scheduledAt: z.date().optional().nullable(),
+  // Accept ISO string or Date for scheduledAt
+  scheduledAt: z.coerce.date().optional().nullable(),
   startedAt: z.date().optional().nullable(),
   completedAt: z.date().optional().nullable(),
   duration: z.number().optional().nullable(),

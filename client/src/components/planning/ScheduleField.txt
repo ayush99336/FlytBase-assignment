@@ -1,0 +1,21 @@
+            <FormField
+              control={form.control}
+              name="scheduledAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium text-neutral-700">Schedule</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="datetime-local"
+                      className="w-full border border-neutral-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                      value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ""}
+                      onChange={(e) => {
+                        // Convert string date to Date object
+                        field.onChange(e.target.value ? new Date(e.target.value) : null);
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />

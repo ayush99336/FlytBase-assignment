@@ -77,7 +77,7 @@ export function MainLayout({
             <div className="mb-6">
               <h1 className="text-2xl font-semibold">{title}</h1>
               {breadcrumbs.length === 0 && (
-                <p className="text-neutral-600">DroneOps Mission Management System</p>
+                <p className="text-neutral-600">Flytbase Mission Management System</p>
               )}
             </div>
           )}

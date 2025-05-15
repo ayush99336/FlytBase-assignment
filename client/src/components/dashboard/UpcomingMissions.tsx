@@ -87,8 +87,11 @@ export function UpcomingMissions() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Link href={`/missions/${mission.id}`}>
+                      <Link href={`/missions/plan?edit=${mission.id}`}>
                         <Button variant="link" className="text-primary hover:text-primary-dark mr-3">Edit</Button>
+                      </Link>
+                      <Link href={`/monitor?mission=${mission.id}`}>
+                        <Button variant="link" className="text-neutral-600 hover:text-neutral-900">Monitor</Button>
                       </Link>
                       <Button variant="link" className="text-neutral-600 hover:text-neutral-900">
                         Cancel

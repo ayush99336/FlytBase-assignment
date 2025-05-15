@@ -34,46 +34,6 @@ const missionFormSchema = insertMissionSchema.extend({
   location: z.string().min(3, { message: "Location must be specified" }),
   altitude: z.number().min(10, { message: "Minimum altitude is 10 meters" }).max(400, { message: "Maximum altitude is 400 meters" }),
   speed: z.number().min(1, { message: "Minimum speed is 1 m/s" }).max(20, { message: "Maximum speed is 20 m/s" }),
-  // Ensure scheduledAt is properly handled as a date
-  scheduledAt: z.preprocess(
-    (val) => val === '' || val === null || val === undefined ? null : new Date(val as string),
-    z.date().optional().nullable()
-  ),
-  // Ensure droneId is treated as a number or null
-  droneId: z.preprocess(
-    (val) => val === '' || val === null || val === undefined ? null : Number(val),
-    z.number().optional().nullable()
-  ),
-  // Ensure flightPath is a valid GeoJSON object
-  flightPath: z.preprocess(
-    (val) => {
-      if (typeof val === 'string') {
-        try {
-          return JSON.parse(val);
-        } catch {
-          return { type: 'LineString', coordinates: [] };
-        }
-      }
-      return val || { type: 'LineString', coordinates: [] };
-    },
-    z.any()
-  ),
-  // Ensure waypoints is always an array/object, not a string
-  waypoints: z.preprocess(
-    (val) => {
-      if (typeof val === 'string') {
-        try {
-          return JSON.parse(val);
-        } catch {
-          return [];
-        }
-      }
-      return val ?? [];
-    },
-    z.any()
-  ),
-  // Ensure sensors is always an array
-  sensors: z.array(z.string()).default([]),
 });
 
 type MissionFormValues = z.infer<typeof missionFormSchema>;
@@ -114,70 +74,23 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
   const onSubmit = async (data: MissionFormValues) => {
     setIsSubmitting(true);
     try {
-      // Ensure scheduledAt is always an ISO string or null
+      // Parse waypoints JSON
+      let parsedWaypoints = null;
+      try {
+        parsedWaypoints = data.waypoints ? JSON.parse(data.waypoints as any) : null;
+      } catch {
+        throw new Error('Invalid JSON in waypoints');
+      }
       const formattedData = {
         ...data,
-        scheduledAt: data.scheduledAt ? new Date(data.scheduledAt).toISOString() : null,
-        droneId: typeof data.droneId === 'number' && !isNaN(data.droneId) ? data.droneId : null,
-        area: typeof data.area === 'number' && !isNaN(data.area) ? data.area : 0,
-        altitude: typeof data.altitude === 'number' && !isNaN(data.altitude) ? data.altitude : 80,
-        speed: typeof data.speed === 'number' && !isNaN(data.speed) ? data.speed : 5,
-        imageOverlap: typeof data.imageOverlap === 'number' && !isNaN(data.imageOverlap) ? data.imageOverlap : 75,
-        patternType: data.patternType || 'Grid',
-        dataFrequency: typeof data.dataFrequency === 'number' && !isNaN(data.dataFrequency) ? data.dataFrequency : 10,
-        sensors: Array.isArray(data.sensors) ? data.sensors : [],
-        waypoints: data.waypoints, // Already parsed by schema
-        flightPath: (data.flightPath && typeof data.flightPath === 'object') ? data.flightPath : { type: 'LineString', coordinates: [] },
-        status: data.status || 'Planned',
-        missionType: data.missionType || 'Site Survey',
-        location: data.location || '',
-        name: data.name || '',
+        scheduledAt: data.scheduledAt ? new Date(data.scheduledAt).toISOString() : undefined,
+        droneId: Number(data.droneId),
+        dataFrequency: data.dataFrequency,
+        sensors: data.sensors,
+        waypoints: parsedWaypoints,
       };
 
-      // DEBUG LOGGING: Output all data before sending
-      console.log('MissionForm SUBMIT RAW DATA:', data);
-      console.log('MissionForm SUBMIT formattedData:', formattedData);
-      // Also log types for critical fields
-      console.log('Types:', {
-        scheduledAt: formattedData.scheduledAt,
-        scheduledAtType: Object.prototype.toString.call(formattedData.scheduledAt),
-        droneId: formattedData.droneId,
-        droneIdType: typeof formattedData.droneId,
-        area: formattedData.area,
-        areaType: typeof formattedData.area,
-        altitude: formattedData.altitude,
-        altitudeType: typeof formattedData.altitude,
-        speed: formattedData.speed,
-        speedType: typeof formattedData.speed,
-        imageOverlap: formattedData.imageOverlap,
-        imageOverlapType: typeof formattedData.imageOverlap,
-        patternType: formattedData.patternType,
-        patternTypeType: typeof formattedData.patternType,
-        dataFrequency: formattedData.dataFrequency,
-        dataFrequencyType: typeof formattedData.dataFrequency,
-        sensors: formattedData.sensors,
-        sensorsType: Array.isArray(formattedData.sensors),
-        waypoints: formattedData.waypoints,
-        waypointsType: Array.isArray(formattedData.waypoints),
-        flightPath: formattedData.flightPath,
-        flightPathType: typeof formattedData.flightPath,
-        status: formattedData.status,
-        statusType: typeof formattedData.status,
-        missionType: formattedData.missionType,
-        missionTypeType: typeof formattedData.missionType,
-        location: formattedData.location,
-        locationType: typeof formattedData.location,
-        name: formattedData.name,
-        nameType: typeof formattedData.name,
-      });
-
       const response = await apiRequest('POST', '/api/missions', formattedData);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Server error: ${response.status}`);
-      }
-      
       const mission = await response.json();
 
       // Invalidate missions query to refresh the list
@@ -237,7 +150,7 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
                   <FormLabel className="text-sm font-medium text-neutral-700">Mission Type</FormLabel>
                   <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value ?? undefined}
+                    defaultValue={field.value}
                   >
                     <FormControl>
                       <SelectTrigger className="w-full border border-neutral-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
@@ -263,11 +176,8 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
                 <FormItem>
                   <FormLabel className="text-sm font-medium text-neutral-700">Assigned Drone</FormLabel>
                   <Select
-                    value={field.value !== undefined && field.value !== null ? String(field.value) : ""}
-                    onValueChange={(value) => {
-                      // Convert empty string to undefined, otherwise convert to number
-                      field.onChange(value === "" ? undefined : Number(value));
-                    }}
+                    onValueChange={field.onChange}
+                    defaultValue={field.value?.toString()}
                   >
                     <FormControl>
                       <SelectTrigger className="w-full border border-neutral-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
@@ -277,12 +187,12 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
                     <SelectContent>
                       {availableDrones.length > 0 ? (
                         availableDrones.map(drone => (
-                          <SelectItem key={drone.id} value={String(drone.id)}>
+                          <SelectItem key={drone.id} value={drone.id.toString()}>
                             {drone.model} ({drone.serialNumber})
                           </SelectItem>
                         ))
                       ) : (
-                        <div className="py-2 px-2 text-sm text-muted-foreground">No available drones</div>
+                        <SelectItem value="none" disabled>No available drones</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
@@ -322,8 +232,8 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
                         className="flex-1 border border-neutral-300 rounded-l-md px-3 py-2 focus:outline-none focus:ring-primary focus:border-primary"
                         min={10}
                         max={400}
-                        value={field.value === null || field.value === undefined ? '' : field.value}
-                        onChange={e => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                        {...field}
+                        onChange={e => field.onChange(Number(e.target.value))}
                       />
                       <span className="inline-flex items-center px-3 py-2 rounded-r-md border border-l-0 border-neutral-300 bg-neutral-200 text-neutral-700">meters</span>
                     </div>
@@ -346,8 +256,8 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
                         className="flex-1 border border-neutral-300 rounded-l-md px-3 py-2 focus:outline-none focus:ring-primary focus:border-primary"
                         min={1}
                         max={20}
-                        value={field.value === null || field.value === undefined ? '' : field.value}
-                        onChange={e => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                        {...field}
+                        onChange={e => field.onChange(Number(e.target.value))}
                       />
                       <span className="inline-flex items-center px-3 py-2 rounded-r-md border border-l-0 border-neutral-300 bg-neutral-200 text-neutral-700">m/s</span>
                     </div>
@@ -370,8 +280,8 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
                         className="flex-1 border border-neutral-300 rounded-l-md px-3 py-2 focus:outline-none focus:ring-primary focus:border-primary"
                         min={50}
                         max={90}
-                        value={field.value === null || field.value === undefined ? '' : field.value}
-                        onChange={e => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                        {...field}
+                        onChange={e => field.onChange(Number(e.target.value))}
                       />
                       <span className="inline-flex items-center px-3 py-2 rounded-r-md border border-l-0 border-neutral-300 bg-neutral-200 text-neutral-700">%</span>
                     </div>
@@ -418,11 +328,7 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
                     <Input
                       type="datetime-local"
                       className="w-full border border-neutral-300 rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                      value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ""}
-                      onChange={(e) => {
-                        // Convert string date to Date object
-                        field.onChange(e.target.value ? new Date(e.target.value) : null);
-                      }}
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -448,20 +354,7 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
               render={({ field }) => (
                 <FormItem className="hidden">
                   <FormControl>
-                    {/* Ensure flightPath is always a valid GeoJSON object */}
-                    <Input 
-                      type="hidden" 
-                      {...field} 
-                      onChange={(e) => {
-                        let value;
-                        try {
-                          value = e.target.value ? JSON.parse(e.target.value) : { type: 'LineString', coordinates: [] };
-                        } catch {
-                          value = { type: 'LineString', coordinates: [] };
-                        }
-                        field.onChange(value);
-                      }} 
-                    />
+                    <Input type="hidden" {...field} />
                   </FormControl>
                 </FormItem>
               )}
@@ -479,8 +372,8 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
                       type="number"
                       min={1}
                       max={60}
-                      value={field.value === null || field.value === undefined ? '' : field.value}
-                      onChange={e => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                      {...field}
+                      onChange={e => field.onChange(Number(e.target.value))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -535,9 +428,6 @@ export function MissionForm({ surveyArea, surveyAreaGeoJson }: MissionFormProps)
                       onChange={e => field.onChange(e.target.value)}
                     />
                   </FormControl>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Leave empty or as <code>[]</code> unless you want to specify a custom path for the drone. Must be a valid JSON array of objects with <code>lat</code> and <code>lng</code>.
-                  </div>
                   <FormMessage />
                 </FormItem>
               )}

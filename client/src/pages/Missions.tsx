@@ -65,7 +65,7 @@ export default function Missions() {
                       <TableCell>{mission.droneId || 'Unassigned'}</TableCell>
                       <TableCell>{mission.progress}%</TableCell>
                       <TableCell className="text-right">
-                        <Link href={`/missions/${mission.id}`}>
+                        <Link href={`/monitor?mission=${mission.id}`}>
                           <Button variant="link" className="text-primary hover:text-primary-dark">View</Button>
                         </Link>
                       </TableCell>

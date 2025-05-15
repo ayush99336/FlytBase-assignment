@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/lib/store';
+import { droneActions } from '@/lib/store';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
+import { DroneFormModal } from './DroneFormModal';
 import { 
   getBatteryLevelColor, 
   getStatusColor, 
@@ -50,7 +54,11 @@ import {
 import { Progress } from '@/components/ui/progress';
 
 export function DroneTable() {
+  const dispatch = useDispatch();
+  const { toast } = useToast();
   const drones = useSelector((state: RootState) => state.drones.drones);
+  const loading = useSelector((state: RootState) => state.drones.loading);
+  const error = useSelector((state: RootState) => state.drones.error);
   const missions = useSelector((state: RootState) => state.missions.missions);
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,7 +66,92 @@ export function DroneTable() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [viewType, setViewType] = useState<'list' | 'grid'>('list');
+  const [showModal, setShowModal] = useState<null | { mode: 'add' | 'edit', drone?: any }>(null);
   const itemsPerPage = 6;
+
+  // Fetch drones on component mount
+  useEffect(() => {
+    const fetchDrones = async () => {
+      try {
+        dispatch(droneActions.setLoading(true));
+        const response = await fetch('/api/drones');
+        if (!response.ok) {
+          throw new Error('Failed to fetch drones');
+        }
+        const data = await response.json();
+        dispatch(droneActions.setDrones(data));
+      } catch (error) {
+        console.error('Error fetching drones:', error);
+        dispatch(droneActions.setError('Failed to load drones'));
+        toast({ 
+          title: 'Error', 
+          description: 'Failed to load drone fleet data', 
+          variant: 'destructive' 
+        });
+      } finally {
+        dispatch(droneActions.setLoading(false));
+      }
+    };
+
+    fetchDrones();
+  }, [dispatch, toast]);
+
+  // --- ACTION HANDLERS ---
+  const handleSetStatus = async (drone: any, status: string) => {
+    try {
+      const updated = { ...drone, status };
+      await apiRequest('PATCH', `/api/drones/${drone.id}`, { status });
+      dispatch(droneActions.updateDrone(updated));
+      toast({ title: 'Status Updated', description: `${drone.model} set to ${status}` });
+    } catch (e: any) {
+      console.error('Error updating drone status:', e);
+      toast({ 
+        title: 'Error', 
+        description: e.message || 'Failed to update status', 
+        variant: 'destructive' 
+      });
+    }
+  };
+  
+  const handleRecharge = async (drone: any) => {
+    try {
+      const updated = { ...drone, currentBatteryLevel: 100 };
+      await apiRequest('PATCH', `/api/drones/${drone.id}`, { currentBatteryLevel: 100 });
+      dispatch(droneActions.updateDrone(updated));
+      toast({ title: 'Drone Recharged', description: `${drone.model} battery set to 100%` });
+    } catch (e: any) {
+      console.error('Error recharging drone:', e);
+      toast({ 
+        title: 'Error', 
+        description: e.message || 'Failed to recharge drone', 
+        variant: 'destructive' 
+      });
+    }
+  };
+  
+  const handleRemove = async (drone: any) => {
+    if (!window.confirm(`Remove drone ${drone.model}?`)) return;
+    try {
+      await apiRequest('DELETE', `/api/drones/${drone.id}`);
+      dispatch(droneActions.setDrones(drones.filter((d: any) => d.id !== drone.id)));
+      toast({ title: 'Drone Removed', description: `${drone.model} removed from fleet` });
+    } catch (e: any) {
+      console.error('Error removing drone:', e);
+      toast({ 
+        title: 'Error', 
+        description: e.message || 'Failed to remove drone', 
+        variant: 'destructive' 
+      });
+    }
+  };
+  
+  const handleAddDrone = () => {
+    setShowModal({ mode: 'add' });
+  };
+  
+  const handleEdit = (drone: any) => {
+    setShowModal({ mode: 'edit', drone });
+  };
   
   // Filter drones based on search term and filters
   const filteredDrones = drones.filter(drone => {
@@ -141,28 +234,48 @@ export function DroneTable() {
             </SelectContent>
           </Select>
         </div>
-        
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-neutral-600">View:</span>
-          <Button
-            variant={viewType === 'list' ? 'default' : 'secondary'}
-            size="icon"
-            onClick={() => setViewType('list')}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewType === 'grid' ? 'default' : 'secondary'}
-            size="icon"
-            onClick={() => setViewType('grid')}
-          >
-            <Grid className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button variant="default" className="ml-auto" onClick={() => handleAddDrone()}>
+          <Plus className="h-4 w-4 mr-1" /> Add Drone
+        </Button>
       </CardHeader>
       
       <CardContent className="p-0">
-        {viewType === 'list' ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-neutral-600">Loading drone fleet data...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center text-red-500">
+              <p>{error}</p>
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => {
+                  dispatch(droneActions.setError(''));
+                  dispatch(droneActions.setLoading(true));
+                  // Re-fetch drones
+                  fetch('/api/drones')
+                    .then(res => res.json())
+                    .then(data => {
+                      dispatch(droneActions.setDrones(data));
+                      dispatch(droneActions.setLoading(false));
+                    })
+                    .catch(err => {
+                      console.error(err);
+                      dispatch(droneActions.setError('Failed to load drones'));
+                      dispatch(droneActions.setLoading(false));
+                    });
+                }}
+              >
+                Retry
+              </Button>
+            </div>
+          </div>
+        ) : viewType === 'list' ? (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-neutral-200">
@@ -241,9 +354,21 @@ export function DroneTable() {
                           {parseFloat(drone.flightHours).toFixed(1)} hours
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="link" className="text-primary hover:text-primary-dark">
-                            Details
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="link" className="text-primary hover:text-primary-dark">Actions</Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleSetStatus(drone, 'Available')}>Set as Available</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSetStatus(drone, 'Charging')}>Set as Charging</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSetStatus(drone, 'On Mission')}>Set as On Mission</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSetStatus(drone, 'Maintenance')}>Set as Maintenance</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleSetStatus(drone, 'Terminated')}>Set as Terminated</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleRecharge(drone)}>Recharge Battery</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEdit(drone)}>Edit Details</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleRemove(drone)} className="text-red-600">Remove Drone</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     );
@@ -371,6 +496,16 @@ export function DroneTable() {
           </Button>
         </div>
       </CardFooter>
+      
+      {/* Drone Form Modal */}
+      {showModal && (
+        <DroneFormModal
+          isOpen={!!showModal}
+          onClose={() => setShowModal(null)}
+          mode={showModal.mode}
+          drone={showModal.drone}
+        />
+      )}
     </Card>
   );
 }
