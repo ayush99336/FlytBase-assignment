@@ -20,7 +20,7 @@ interface MissionMapProps {
 
 export function MissionMap({ onAreaDraw }: MissionMapProps) {
   const { map, area, isMapReady, clearDrawnItems, resetMap } = useMap('planning-map', {
-    drawControls: true,
+    drawControls: false,
     onAreaDraw
   });
   

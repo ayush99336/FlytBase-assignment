@@ -79,3 +79,8 @@ export const updateMissionProgressSchema = z.object({
 
 export type UpdateMissionStatus = z.infer<typeof updateMissionStatusSchema>;
 export type UpdateMissionProgress = z.infer<typeof updateMissionProgressSchema>;
+export type Drone = z.infer<typeof insertDroneSchema>;
+export type InsertMission = z.infer<typeof insertMissionSchema>;
+export type MissionLog = z.infer<typeof insertMissionLogSchema>;
+export type Telemetry = z.infer<typeof insertTelemetrySchema>;
+export type BatteryLog = z.infer<typeof insertBatteryLogSchema>;
